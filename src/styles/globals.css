@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* 高齢者向け：ベースの文字を大きく（最小16px） */
+    font-size: 17px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-brand-cream text-brand-text font-sans;
+    margin: 0;
+    line-height: 1.7;
+    /* タップ時のハイライトを控えめに */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* フォーカス時はブランドピンクで分かりやすく */
+  *:focus-visible {
+    outline: 3px solid #e85c7d;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* 画面全体を中央寄せ・スマホ縦長レイアウト */
+  .screen {
+    @apply mx-auto min-h-screen w-full max-w-[430px] bg-brand-cream flex flex-col;
+  }
+
+  .screen-body {
+    @apply flex-1 px-5 py-6;
+  }
+}

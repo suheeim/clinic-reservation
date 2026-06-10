@@ -1,0 +1,11 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "members": {
+      "$memberId": {
+        ".validate": "newData.hasChildren(['name', 'status'])"
+      }
+    }
+  }
+}

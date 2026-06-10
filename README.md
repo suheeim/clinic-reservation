@@ -51,8 +51,49 @@
 git clone https://github.com/your-username/clinic-reservation.git
 cd clinic-reservation
 npm install
-npm start
+npm run dev   # http://localhost:3000  （npm start も同じ）
 ```
+
+## 開発メモ（ステップ1）
+
+技術構成：**Vite + React + TypeScript + Tailwind CSS + Firebase Realtime Database**
+
+### スクリプト
+
+| コマンド | 内容 |
+|---|---|
+| `npm run dev` / `npm start` | 開発サーバー起動（ポート3000） |
+| `npm run build` | 型チェック + 本番ビルド（`dist/`） |
+| `npm run preview` | ビルド結果のプレビュー |
+
+### Firebase の初期データ投入
+
+`seed-data.json` にテスト用の会員データが入っています。
+Firebase コンソール → Realtime Database → 「JSONをインポート」から投入してください。
+
+ログインに使える会員番号（テスト用）：
+
+| 会員番号 | 名前 | 次回予約 |
+|---|---|---|
+| `00001` | 田中太郎 | あり |
+| `00002` | 佐藤花子 | なし |
+| `12345` | 山田一郎 | なし |
+
+### データベースルール
+
+`database.rules.json`（開発中のテストモード）。デプロイは：
+
+```bash
+firebase deploy --only database     # ルール
+firebase deploy --only hosting      # ビルド済み dist/ を公開
+```
+
+### 画面遷移（ステップ1）
+
+`ログイン` → `ホーム` → `日にち選択(1/4)` → `時間選択(2/4)` → `確認(3/4)` → `完了`
+
+予約データは `reservations` に保存され、会員の `nextReservationDate` を更新します。
+（当日受付・チェックイン・待合室表示・管理画面はステップ2以降）
 
 ## ライセンス
 
