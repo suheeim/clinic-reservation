@@ -6,7 +6,7 @@ interface BackButtonProps {
 /** ヘッダー左の「もどる」ボタン。大きくタップしやすく。 */
 export default function BackButton({
   onClick,
-  label = 'もどる',
+  label = '戻る',
 }: BackButtonProps) {
   return (
     <button

@@ -30,12 +30,12 @@ export default function DateSelection({
 
   return (
     <div className="screen">
-      <Header title="日にちを えらぶ" onBack={onBack} />
+      <Header title="日付を選ぶ" onBack={onBack} />
       <StepBar current={1} />
 
       <div className="screen-body">
         <p className="text-center text-[22px] font-bold">
-          いつ みてもらいますか？
+          希望の日を選んでください
         </p>
 
         {/* 週の切り替え */}
@@ -67,9 +67,9 @@ export default function DateSelection({
             const isSat = d.getDay() === 6
             const isSun = d.getDay() === 0
 
-            let statusLabel = 'あいています'
-            if (closed) statusLabel = 'おやすみ'
-            else if (full) statusLabel = 'うまっています'
+            let statusLabel = '空きあり'
+            if (closed) statusLabel = '休診'
+            else if (full) statusLabel = '満員'
             else if (past) statusLabel = '—'
 
             return (

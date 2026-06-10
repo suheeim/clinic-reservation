@@ -13,8 +13,8 @@ import {
 import { buildCountMap } from './utils/slots'
 import type { DraftReservation, Member, Screen } from './types'
 
-// ステップ1の用事は固定（用事の選択はのちのステップで追加予定）
-const DEFAULT_PURPOSE = 'しんりょう（ちりょう）'
+// ステップ1の用事は固定（用事の選択は次のステップで追加予定）
+const DEFAULT_PURPOSE = '診療（治療）'
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('login')
@@ -80,7 +80,7 @@ export default function App() {
       setScreen('complete')
     } catch (e) {
       console.error('予約の保存に失敗', e)
-      setSaveError('よやくの ほぞんに しっぱいしました。もういちど おためしください')
+      setSaveError('予約の保存に失敗しました。もう一度お試しください')
     } finally {
       setSaving(false)
     }

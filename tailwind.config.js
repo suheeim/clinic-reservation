@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // さくら針灸整骨院 ブランドカラー
+        // △△医院 ブランドカラー
         brand: {
           pink: '#E85C7D', // メインカラー：ボタン・ヘッダー・フォーカス
           green: '#4B7D3A', // サブカラー：成功・確認・チェックマーク

@@ -4,7 +4,7 @@ interface StepBarProps {
   total?: number
 }
 
-const LABELS = ['日にち', '時間', 'かくにん', '完了']
+const LABELS = ['日付', '時間', '確認', '完了']
 
 /** 進捗を示すステップバー。「ステップ1/4」と文字でも表示。 */
 export default function StepBar({ current, total = 4 }: StepBarProps) {

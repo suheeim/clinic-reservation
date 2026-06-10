@@ -3,7 +3,7 @@
     "00001": {
       "name": "田中太郎",
       "nextReservationDate": "2026-06-15 14:00",
-      "nextReservationPurpose": "はりきゅう",
+      "nextReservationPurpose": "鍼灸",
       "checkedIn": false,
       "todayNumber": null,
       "status": "reserved"

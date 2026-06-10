@@ -21,27 +21,27 @@ export default function Confirmation({
 }: ConfirmationProps) {
   return (
     <div className="screen">
-      <Header title="かくにん" onBack={onBack} />
+      <Header title="確認" onBack={onBack} />
       <StepBar current={3} />
 
       <div className="screen-body flex flex-col">
         <p className="text-center text-[22px] font-bold">
-          このないようで
+          この内容で
           <br />
           よろしいですか？
         </p>
 
         <dl className="mt-6 divide-y divide-gray-200 rounded-2xl bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between py-3">
-            <dt className="text-[17px] text-brand-sub">ようじ</dt>
+            <dt className="text-[17px] text-brand-sub">用事</dt>
             <dd className="text-[20px] font-bold">{draft.purpose}</dd>
           </div>
           <div className="flex items-center justify-between py-3">
-            <dt className="text-[17px] text-brand-sub">日にち</dt>
+            <dt className="text-[17px] text-brand-sub">日付</dt>
             <dd className="text-[20px] font-bold">{formatDateJa(draft.date)}</dd>
           </div>
           <div className="flex items-center justify-between py-3">
-            <dt className="text-[17px] text-brand-sub">時こく</dt>
+            <dt className="text-[17px] text-brand-sub">時刻</dt>
             <dd className="text-[20px] font-bold text-brand-pink">
               {formatTimeJa(draft.time)}
             </dd>
@@ -60,10 +60,10 @@ export default function Confirmation({
         {/* ボタンは縦並び。予約するを大きく目立たせる。 */}
         <div className="mt-auto flex flex-col gap-3 pb-2 pt-8">
           <Button variant="pink" onClick={onConfirm} disabled={saving}>
-            {saving ? 'よやく中…' : 'この日で 予約する'}
+            {saving ? '予約中…' : 'この日で予約する'}
           </Button>
           <Button variant="gray" onClick={onBack} disabled={saving}>
-            もどる
+            戻る
           </Button>
         </div>
       </div>

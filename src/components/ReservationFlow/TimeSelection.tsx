@@ -18,16 +18,16 @@ export default function TimeSelection({
 }: TimeSelectionProps) {
   return (
     <div className="screen">
-      <Header title="時間を えらぶ" onBack={onBack} />
+      <Header title="時間を選ぶ" onBack={onBack} />
       <StepBar current={2} />
 
       <div className="screen-body">
-        <p className="text-center text-[16px] text-brand-sub">えらんだ日</p>
+        <p className="text-center text-[16px] text-brand-sub">選んだ日</p>
         <p className="mt-1 text-center text-[24px] font-bold text-brand-pink">
           {formatDateJa(date)}
         </p>
 
-        <p className="mt-6 text-[20px] font-bold">なん時が いいですか？</p>
+        <p className="mt-6 text-[20px] font-bold">何時が良いですか？</p>
 
         {/* 2列グリッド */}
         <div className="mt-3 grid grid-cols-2 gap-3">
@@ -47,7 +47,7 @@ export default function TimeSelection({
               >
                 <span className="text-[22px] font-bold">{time}</span>
                 <span className="text-[15px] font-bold">
-                  {full ? 'いっぱい' : 'あき'}
+                  {full ? '満員' : '空き'}
                 </span>
               </button>
             )
@@ -55,7 +55,7 @@ export default function TimeSelection({
         </div>
 
         <p className="mt-5 text-center text-[15px] text-brand-sub">
-          ※「いっぱい」の 時間は えらべません
+          ※「満員」の時間は選べません
         </p>
       </div>
     </div>

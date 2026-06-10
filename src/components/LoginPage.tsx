@@ -34,7 +34,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       onLogin(member)
     } catch (e) {
       console.error(e)
-      setError('つうしんに しっぱいしました。もういちど おためしください')
+      setError('通信に失敗しました。もう一度お試しください')
     } finally {
       setLoading(false)
     }
@@ -43,17 +43,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div className="screen">
       <header className="bg-brand-pink px-4 py-5 text-center text-white shadow-md">
-        <h1 className="text-[22px] font-bold">さくら針灸整骨院</h1>
-        <p className="mt-1 text-[16px]">ネットよやく</p>
+        <h1 className="text-[22px] font-bold">△△医院</h1>
+        <p className="mt-1 text-[16px]">ネット予約</p>
       </header>
 
       <div className="screen-body flex flex-col">
         <div className="mt-6 text-center">
-          <p className="text-[20px] font-bold">会員番号を いれてください</p>
+          <p className="text-[20px] font-bold">会員番号を入力してください</p>
           <p className="mt-3 text-[16px] text-brand-sub">
-            しんさつけんに かいてある
+            診察券に記載の
             <br />
-            5けたの番号です
+            5桁の番号です
           </p>
         </div>
 
@@ -89,7 +89,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
         <div className="mt-auto pb-2 pt-8">
           <Button onClick={handleLogin} disabled={!isValid || loading}>
-            {loading ? 'かくにん中…' : 'ログイン'}
+            {loading ? '確認中…' : 'ログイン'}
           </Button>
         </div>
       </div>
