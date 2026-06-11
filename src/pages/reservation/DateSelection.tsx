@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../../components/Common/Header'
 import StepBar from '../../components/Common/StepBar'
 import { useSession } from '../../context/SessionContext'
@@ -9,8 +8,16 @@ import { isDayFull } from '../../utils/slots'
 export default function DateSelection() {
   const navigate = useNavigate()
   const { draft, updateDraft, reservations } = useSession()
-  // 表示中の週（0=今週, 1=来週, …）。先週方向（負）には進めない。
-  const [weekOffset, setWeekOffset] = useState(0)
+  // 表示中の週（0=今週, 1=来週, …）を URL に持たせる。
+  // こうすると画面の再マウント（時刻選択からのブラウザバック等）でも
+  // 選択中の週が保持される。replace で履歴を汚さないので、戻るは
+  // 週を1つずつ巻き戻すのではなく前の画面（ホーム）へ一度で戻る。
+  const [searchParams, setSearchParams] = useSearchParams()
+  const weekOffset = Math.max(0, Number(searchParams.get('week')) || 0)
+
+  function setWeek(next: number) {
+    setSearchParams(next > 0 ? { week: String(next) } : {}, { replace: true })
+  }
 
   if (!draft) return <Navigate to="/" replace />
 
@@ -38,7 +45,7 @@ export default function DateSelection() {
         <div className="mt-4 flex items-center gap-3">
           {canGoPrev ? (
             <button
-              onClick={() => setWeekOffset((w) => w - 1)}
+              onClick={() => setWeek(weekOffset - 1)}
               className="inline-flex min-h-[52px] items-center gap-1.5 rounded-2xl border-2 border-brand-pink bg-white px-4 py-2 text-[18px] font-bold text-brand-pink shadow-sm transition active:bg-pink-50"
             >
               <span aria-hidden="true" className="text-[22px] leading-none">
@@ -48,7 +55,7 @@ export default function DateSelection() {
             </button>
           ) : null}
           <button
-            onClick={() => setWeekOffset((w) => w + 1)}
+            onClick={() => setWeek(weekOffset + 1)}
             className="ml-auto inline-flex min-h-[52px] items-center gap-1.5 rounded-2xl border-2 border-brand-pink bg-white px-4 py-2 text-[18px] font-bold text-brand-pink shadow-sm transition active:bg-pink-50"
           >
             来週
