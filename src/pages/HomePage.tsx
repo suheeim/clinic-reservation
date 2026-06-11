@@ -17,7 +17,7 @@ export default function HomePage() {
 
   async function goToReservation() {
     setAskChange(false)
-    setDraft({ mode: 'existing', date: '', time: '' })
+    setDraft({ mode: 'existing', date: '', time: '', weekOffset: 0 })
     await loadReservations()
     navigate('/reserve/date')
   }

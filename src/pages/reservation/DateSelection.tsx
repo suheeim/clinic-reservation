@@ -1,4 +1,4 @@
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import Header from '../../components/Common/Header'
 import StepBar from '../../components/Common/StepBar'
 import { useSession } from '../../context/SessionContext'
@@ -8,18 +8,15 @@ import { isDayFull } from '../../utils/slots'
 export default function DateSelection() {
   const navigate = useNavigate()
   const { draft, updateDraft, reservations } = useSession()
-  // 表示中の週（0=今週, 1=来週, …）を URL に持たせる。
-  // こうすると画面の再マウント（時刻選択からのブラウザバック等）でも
-  // 選択中の週が保持される。replace で履歴を汚さないので、戻るは
-  // 週を1つずつ巻き戻すのではなく前の画面（ホーム）へ一度で戻る。
-  const [searchParams, setSearchParams] = useSearchParams()
-  const weekOffset = Math.max(0, Number(searchParams.get('week')) || 0)
-
-  function setWeek(next: number) {
-    setSearchParams(next > 0 ? { week: String(next) } : {}, { replace: true })
-  }
 
   if (!draft) return <Navigate to="/" replace />
+
+  // 表示中の週（0=今週, 1=来週, …）は draft（SessionContext）に保持する。
+  // 時刻選択へ進んで「戻る」で戻ってきても、画面の再マウントに関係なく
+  // 選択していた週が復元される。
+  const weekOffset = draft.weekOffset
+  const setWeek = (next: number) =>
+    updateDraft({ weekOffset: Math.max(0, next) })
 
   const back = () => navigate(draft.mode === 'existing' ? '/home' : '/')
 

@@ -7,7 +7,7 @@ export default function TopPage() {
   const { setDraft, loadReservations } = useSession()
 
   async function startFirstVisit() {
-    setDraft({ mode: 'new', date: '', time: '' })
+    setDraft({ mode: 'new', date: '', time: '', weekOffset: 0 })
     await loadReservations()
     navigate('/reserve/date')
   }

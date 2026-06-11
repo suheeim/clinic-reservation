@@ -38,4 +38,6 @@ export interface ReservationDraft {
   mode: ReservationMode
   date: string // "2026-06-15"
   time: string // "14:00"
+  /** 日付選択で表示中の週（0=今週, 1=来週, …）。画面を行き来しても保持する */
+  weekOffset: number
 }
