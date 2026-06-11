@@ -3,7 +3,7 @@ import Header from '../../components/Common/Header'
 import StepBar from '../../components/Common/StepBar'
 import { useSession } from '../../context/SessionContext'
 import { fromDateKey, isClosed, weekDays, weekdayLabel } from '../../utils/date'
-import { isDayFull } from '../../utils/slots'
+import { isDayAllPast, isDayFull } from '../../utils/slots'
 
 export default function DateSelection() {
   const navigate = useNavigate()
@@ -66,14 +66,16 @@ export default function DateSelection() {
           {dates.map((key) => {
             const d = fromDateKey(key)
             const closed = isClosed(d)
+            const allPast = isDayAllPast(key)
             const full = isDayFull(reservations, key)
-            const disabled = closed || full
+            const disabled = closed || allPast || full
 
             const isSat = d.getDay() === 6
             const isSun = d.getDay() === 0
 
             let statusLabel = '空きあり'
             if (closed) statusLabel = '休診'
+            else if (allPast) statusLabel = '受付終了'
             else if (full) statusLabel = '満員'
 
             return (

@@ -49,3 +49,12 @@ export function isDayFull(
 ): boolean {
   return TIME_SLOTS.every((t) => isSlotTaken(reservations, date, t))
 }
+
+/**
+ * その日の全スロットが受付終了（過去）か。
+ * isPastSlot は当日のみ true になるため、当日で現在時刻が最終スロットを
+ * 過ぎた場合だけ true になる。
+ */
+export function isDayAllPast(date: string): boolean {
+  return TIME_SLOTS.every((t) => isPastSlot(date, t))
+}
