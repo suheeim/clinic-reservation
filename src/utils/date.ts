@@ -47,12 +47,20 @@ export function formatTimeJa(time: string): string {
   return `${Number(h)}時${m}分`
 }
 
-/** "2026-06-15 14:00" を「6月15日（金） 14時00分」に */
-export function formatReservationJa(value: string): string {
-  const [date, time] = value.split(' ')
-  if (!date) return value
+/** 別々の日付・時刻から「6月15日（金） 14時00分」を作る */
+export function formatReservationJa(
+  date: string | null,
+  time: string | null,
+): string {
+  if (!date) return ''
   const datePart = formatDateJa(date)
   return time ? `${datePart} ${formatTimeJa(time)}` : datePart
+}
+
+/** 今日を含む n 日分の日付キー（"2026-06-15"）の配列 */
+export function nextDays(n: number): string[] {
+  const base = today()
+  return Array.from({ length: n }, (_, i) => toDateKey(addDays(base, i)))
 }
 
 /** 日曜は休診とする簡易ルール。今後 Firebase の休診設定に置き換え可能。 */

@@ -1,32 +1,35 @@
 {
   "members": {
+    "12345": {
+      "name": "山田一郎",
+      "nextReservationDate": null,
+      "nextReservationTime": null,
+      "checkedIn": false,
+      "status": "none"
+    },
     "00001": {
       "name": "田中太郎",
-      "nextReservationDate": "2026-06-15 14:00",
-      "nextReservationPurpose": "鍼灸",
+      "password": "$2b$10$MCfpL7ZnYgCGw4jnS3ItzuplxhVAVQ9HHNP3/OS0A.2wO2/AVVEfW",
+      "nextReservationDate": "2026-06-15",
+      "nextReservationTime": "14:00",
       "checkedIn": false,
-      "todayNumber": null,
       "status": "reserved"
     },
     "00002": {
       "name": "佐藤花子",
+      "password": "$2b$10$dJlBCVTR4rtZDC99Jgv4nezjBKesh31pweUVdnAU2H9ikjpeOgk4q",
       "nextReservationDate": null,
-      "nextReservationPurpose": null,
+      "nextReservationTime": null,
       "checkedIn": false,
-      "todayNumber": null,
-      "status": "none"
-    },
-    "12345": {
-      "name": "山田一郎",
-      "nextReservationDate": null,
-      "nextReservationPurpose": null,
-      "checkedIn": false,
-      "todayNumber": null,
       "status": "none"
     }
   },
-  "todayQueue": {
-    "currentCalling": null,
-    "queue": {}
+  "reservations": {
+    "2026-06-15": {
+      "1400": {
+        "memberNumber": "00001",
+        "type": "existing"
+      }
+    }
   }
 }

@@ -1,9 +1,6 @@
-import type { Reservation } from '../types'
+import type { ReservationsByDate } from '../types'
 
-/** 1枠あたりの定員。超えると「いっぱい」になる。 */
-export const SLOT_CAPACITY = 1
-
-/** 予約できる時間スロット（午前・午後）。 */
+/** 予約できる時間スロット（午前・午後）。"HH:MM" 形式。 */
 export const TIME_SLOTS: string[] = [
   '09:00',
   '09:30',
@@ -21,31 +18,24 @@ export const TIME_SLOTS: string[] = [
   '17:30',
 ]
 
-/** "date time" をキーにした予約件数のマップを作る。 */
-export function buildCountMap(
-  reservations: Reservation[],
-): Record<string, number> {
-  const map: Record<string, number> = {}
-  for (const r of reservations) {
-    const key = `${r.date} ${r.time}`
-    map[key] = (map[key] ?? 0) + 1
-  }
-  return map
+/** "14:00" → "1400"（Firebase のキー用） */
+export function timeKey(time: string): string {
+  return time.replace(':', '')
 }
 
-/** 指定スロットが満員か */
-export function isSlotFull(
-  counts: Record<string, number>,
+/** 指定スロットが予約済みか（定員1） */
+export function isSlotTaken(
+  reservations: ReservationsByDate,
   date: string,
   time: string,
 ): boolean {
-  return (counts[`${date} ${time}`] ?? 0) >= SLOT_CAPACITY
+  return Boolean(reservations[date]?.[timeKey(time)])
 }
 
-/** その日の全スロットが満員か（日にち選択での判定用） */
+/** その日の全スロットが埋まっているか（日にち選択での判定用） */
 export function isDayFull(
-  counts: Record<string, number>,
+  reservations: ReservationsByDate,
   date: string,
 ): boolean {
-  return TIME_SLOTS.every((t) => isSlotFull(counts, date, t))
+  return TIME_SLOTS.every((t) => isSlotTaken(reservations, date, t))
 }
