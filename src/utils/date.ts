@@ -77,3 +77,16 @@ export function weekDays(weekOffset: number): string[] {
 export function isClosed(d: Date): boolean {
   return d.getDay() === 0
 }
+
+/** その日付キーが今日かどうか */
+export function isToday(dateKey: string): boolean {
+  return dateKey === toDateKey(today())
+}
+
+/** 現在時刻を "HH:MM"（ローカル・ゼロ埋め）で返す */
+export function nowTime(): string {
+  const d = new Date()
+  const h = String(d.getHours()).padStart(2, '0')
+  const m = String(d.getMinutes()).padStart(2, '0')
+  return `${h}:${m}`
+}

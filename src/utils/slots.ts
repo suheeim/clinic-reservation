@@ -1,4 +1,5 @@
 import type { ReservationsByDate } from '../types'
+import { isToday, nowTime } from './date'
 
 /** 予約できる時間スロット（午前・午後）。"HH:MM" 形式。 */
 export const TIME_SLOTS: string[] = [
@@ -30,6 +31,15 @@ export function isSlotTaken(
   time: string,
 ): boolean {
   return Boolean(reservations[date]?.[timeKey(time)])
+}
+
+/**
+ * そのスロットが現在時刻より過去か。
+ * 今日の予約のときだけ判定し、現在時刻以前のスロットを過去とみなす
+ * （"HH:MM" はゼロ埋めなので文字列比較で正しく順序づく）。
+ */
+export function isPastSlot(date: string, time: string): boolean {
+  return isToday(date) && time <= nowTime()
 }
 
 /** その日の全スロットが埋まっているか（日にち選択での判定用） */

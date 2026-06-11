@@ -3,7 +3,7 @@ import Header from '../../components/Common/Header'
 import StepBar from '../../components/Common/StepBar'
 import { useSession } from '../../context/SessionContext'
 import { formatDateJa } from '../../utils/date'
-import { TIME_SLOTS, isSlotTaken } from '../../utils/slots'
+import { TIME_SLOTS, isPastSlot, isSlotTaken } from '../../utils/slots'
 
 export default function TimeSelection() {
   const navigate = useNavigate()
@@ -32,22 +32,27 @@ export default function TimeSelection() {
         <div className="mt-3 grid grid-cols-2 gap-3">
           {TIME_SLOTS.map((time) => {
             const taken = isSlotTaken(reservations, draft.date, time)
+            const past = isPastSlot(draft.date, time)
+            const disabled = taken || past
+
+            let statusLabel = '空き'
+            if (taken) statusLabel = '満員'
+            else if (past) statusLabel = '受付終了'
+
             return (
               <button
                 key={time}
                 onClick={() => select(time)}
-                disabled={taken}
+                disabled={disabled}
                 className={[
                   'flex min-h-[68px] flex-col items-center justify-center rounded-2xl px-2 py-2 shadow-sm transition',
-                  taken
+                  disabled
                     ? 'cursor-not-allowed bg-gray-200 text-gray-400'
                     : 'bg-brand-pink text-white active:brightness-90',
                 ].join(' ')}
               >
                 <span className="text-[22px] font-bold">{time}</span>
-                <span className="text-[15px] font-bold">
-                  {taken ? '満員' : '空き'}
-                </span>
+                <span className="text-[15px] font-bold">{statusLabel}</span>
               </button>
             )
           })}
