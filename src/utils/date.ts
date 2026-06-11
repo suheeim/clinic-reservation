@@ -63,6 +63,25 @@ export function nextDays(n: number): string[] {
   return Array.from({ length: n }, (_, i) => toDateKey(addDays(base, i)))
 }
 
+/** d を含む週（日曜始まり）の日曜0時 */
+export function startOfWeek(d: Date): Date {
+  return addDays(d, -d.getDay())
+}
+
+/**
+ * 今週から weekOffset 週ずらした週（日曜〜土曜）の7日分の日付キー。
+ * weekOffset=0 が今週、1 が来週、-1 が先週。
+ */
+export function weekDays(weekOffset: number): string[] {
+  const start = addDays(startOfWeek(today()), weekOffset * 7)
+  return Array.from({ length: 7 }, (_, i) => toDateKey(addDays(start, i)))
+}
+
+/** その日付が今日より前か（過去日）。 */
+export function isPast(d: Date): boolean {
+  return d < today()
+}
+
 /** 日曜は休診とする簡易ルール。今後 Firebase の休診設定に置き換え可能。 */
 export function isClosed(d: Date): boolean {
   return d.getDay() === 0

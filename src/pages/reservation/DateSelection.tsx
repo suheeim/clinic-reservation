@@ -1,15 +1,22 @@
+import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import Header from '../../components/Common/Header'
 import StepBar from '../../components/Common/StepBar'
 import { useSession } from '../../context/SessionContext'
-import { fromDateKey, isClosed, nextDays, weekdayLabel } from '../../utils/date'
+import {
+  fromDateKey,
+  isClosed,
+  isPast,
+  weekDays,
+  weekdayLabel,
+} from '../../utils/date'
 import { isDayFull } from '../../utils/slots'
-
-const DAYS = 14
 
 export default function DateSelection() {
   const navigate = useNavigate()
   const { draft, updateDraft, reservations } = useSession()
+  // 表示中の週（0=今週, 1=来週, …）。先週方向（負）には進めない。
+  const [weekOffset, setWeekOffset] = useState(0)
 
   if (!draft) return <Navigate to="/" replace />
 
@@ -20,7 +27,8 @@ export default function DateSelection() {
     navigate('/reserve/time')
   }
 
-  const dates = nextDays(DAYS)
+  const dates = weekDays(weekOffset)
+  const canGoPrev = weekOffset > 0
 
   return (
     <div className="screen">
@@ -32,18 +40,42 @@ export default function DateSelection() {
           希望の日を選んでください
         </p>
 
+        {/* 週の切り替え */}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button
+            onClick={() => setWeekOffset((w) => w - 1)}
+            disabled={!canGoPrev}
+            className={[
+              'min-h-[52px] flex-1 rounded-2xl px-4 py-2 text-[18px] font-bold shadow-sm transition',
+              canGoPrev
+                ? 'border-2 border-brand-pink bg-white text-brand-pink active:bg-pink-50'
+                : 'cursor-not-allowed bg-gray-200 text-gray-400',
+            ].join(' ')}
+          >
+            ← 先週
+          </button>
+          <button
+            onClick={() => setWeekOffset((w) => w + 1)}
+            className="min-h-[52px] flex-1 rounded-2xl border-2 border-brand-pink bg-white px-4 py-2 text-[18px] font-bold text-brand-pink shadow-sm transition active:bg-pink-50"
+          >
+            来週 →
+          </button>
+        </div>
+
         <div className="mt-5 flex flex-col gap-3">
           {dates.map((key) => {
             const d = fromDateKey(key)
+            const past = isPast(d)
             const closed = isClosed(d)
             const full = isDayFull(reservations, key)
-            const disabled = closed || full
+            const disabled = past || closed || full
 
             const isSat = d.getDay() === 6
             const isSun = d.getDay() === 0
 
             let statusLabel = '空きあり'
-            if (closed) statusLabel = '休診'
+            if (past) statusLabel = '受付終了'
+            else if (closed) statusLabel = '休診'
             else if (full) statusLabel = '満員'
 
             return (
