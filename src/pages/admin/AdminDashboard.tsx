@@ -125,15 +125,17 @@ export default function AdminDashboard() {
             本日の予約はありません
           </p>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full min-w-[700px] table-fixed border-collapse text-[14px]">
+          <div className="mt-4 w-fit max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="table-fixed border-collapse text-[14px]">
+              {/* 状態列は最長バッジ「未チェックイン」が1行で収まる幅に固定し、
+                  状態が変わっても列幅がぶれないようにする。 */}
               <colgroup>
-                <col style={{ width: '96px' }} />
-                <col style={{ width: '104px' }} />
-                <col />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '150px' }} />
-                <col style={{ width: '120px' }} />
+                <col style={{ width: '84px' }} />
+                <col style={{ width: '92px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '112px' }} />
+                <col style={{ width: '156px' }} />
+                <col style={{ width: '92px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50 text-left text-brand-sub">
@@ -171,7 +173,7 @@ export default function AdminDashboard() {
                           aria-haspopup="listbox"
                           aria-expanded={open}
                           aria-label={`状態：${meta.label}（タップで変更）`}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-bold ${meta.badge}`}
+                          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[13px] font-bold ${meta.badge}`}
                         >
                           {meta.label}
                           <span aria-hidden="true" className="text-[10px]">
