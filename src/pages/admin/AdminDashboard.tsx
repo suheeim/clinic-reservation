@@ -125,26 +125,26 @@ export default function AdminDashboard() {
             本日の予約はありません
           </p>
         ) : (
-          <div className="mt-4 w-fit max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="table-fixed border-collapse text-[14px]">
-              {/* 状態列は最長バッジ「未チェックイン」が1行で収まる幅に固定し、
-                  状態が変わっても列幅がぶれないようにする。 */}
+          <div className="mt-4 w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            {/* w-full + 比率指定の table-fixed で、コンテナ幅に合わせて
+                各列が比例伸縮する。min-w で狭い画面では横スクロールに切替。 */}
+            <table className="w-full min-w-[720px] table-fixed border-collapse text-[14px]">
               <colgroup>
-                <col style={{ width: '84px' }} />
-                <col style={{ width: '92px' }} />
-                <col style={{ width: '140px' }} />
-                <col style={{ width: '112px' }} />
-                <col style={{ width: '156px' }} />
-                <col style={{ width: '92px' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
               </colgroup>
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50 text-left text-brand-sub">
-                  <th className="px-3 py-2 font-bold">予約時間</th>
-                  <th className="px-3 py-2 font-bold">会員番号</th>
-                  <th className="px-3 py-2 font-bold">名前</th>
-                  <th className="px-3 py-2 font-bold">チェックイン</th>
-                  <th className="px-3 py-2 font-bold">状態</th>
-                  <th className="px-3 py-2 font-bold">操作</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-bold">予約時間</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-bold">会員番号</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-bold">名前</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-bold">チェックイン</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-bold">状態</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-bold">操作</th>
                 </tr>
               </thead>
               <tbody>
