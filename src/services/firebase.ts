@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, set, update, remove } from 'firebase/database'
+import {
+  getDatabase,
+  ref,
+  get,
+  set,
+  update,
+  remove,
+  onValue,
+} from 'firebase/database'
 import type {
   AdminConfig,
   AdminReservationRow,
@@ -10,7 +18,7 @@ import type {
 } from '../types'
 import { hashPassword, verifyPassword } from '../utils/password'
 import { timeFromKey, timeKey } from '../utils/slots'
-import { toDateKey, today } from '../utils/date'
+import { nowTime, toDateKey, today } from '../utils/date'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDrYB5iRSV0TIPyOjVABj5AWTNEDSB_Lb0',
@@ -256,50 +264,96 @@ export async function updateAdminPassword(password: string): Promise<void> {
 
 // ── 管理者：本日の予約一覧 ────────────────────────────────
 
-/**
- * 本日の予約を会員名を補完して一覧で返す（予約時間順）。
- * チェックイン済みで status 未設定のものは "waiting" とみなす。
- */
-export async function getTodayReservations(): Promise<AdminReservationRow[]> {
-  const date = toDateKey(today())
-  const [resSnap, memSnap] = await Promise.all([
-    get(ref(db, `reservations/${date}`)),
-    get(ref(db, 'members')),
-  ])
-  if (!resSnap.exists()) return []
+const VISIT_STATUSES: VisitStatus[] = ['unchecked', 'waiting', 'called', 'done']
 
-  const members: Record<string, { name?: string }> = memSnap.exists()
-    ? memSnap.val()
-    : {}
-  const day = resSnap.val() as Record<string, ReservationRecord>
-
-  const rows: AdminReservationRow[] = Object.entries(day).map(([key, rec]) => {
-    const name =
-      members[rec.memberNumber]?.name ?? (rec.type === 'new' ? '新患' : '—')
-    const checkInAt = rec.checkInAt ?? null
-    // 未チェックインは status を持たない（操作不可）
-    const status: VisitStatus | null = checkInAt
-      ? (rec.status ?? 'waiting')
-      : null
-    return {
-      timeKey: key,
-      time: timeFromKey(key),
-      memberNumber: rec.memberNumber,
-      name,
-      checkInAt,
-      status,
-    }
-  })
-
-  rows.sort((a, b) => a.timeKey.localeCompare(b.timeKey))
-  return rows
+/** 予約レコードを会員名つきの一覧行へ整える。 */
+function toRow(
+  key: string,
+  rec: ReservationRecord,
+  members: Record<string, { name?: string }>,
+): AdminReservationRow {
+  const name =
+    members[rec.memberNumber]?.name ?? (rec.type === 'new' ? '新患' : '—')
+  const checkInAt = rec.checkInAt ?? null
+  // 明示的な status を優先。古いレコードはチェックイン有無から補完。
+  const status: VisitStatus = VISIT_STATUSES.includes(rec.status as VisitStatus)
+    ? (rec.status as VisitStatus)
+    : checkInAt
+      ? 'waiting'
+      : 'unchecked'
+  return {
+    timeKey: key,
+    time: timeFromKey(key),
+    memberNumber: rec.memberNumber,
+    name,
+    checkInAt,
+    status,
+  }
 }
 
-/** 本日の予約1件の状態（待ち→呼び済み→完了）を更新する。 */
+/**
+ * 本日の予約をリアルタイム購読する（会員名を補完・予約時間順）。
+ * 予約や状態が変わるたび onData が呼ばれる。戻り値で購読解除する。
+ */
+export function subscribeTodayReservations(
+  onData: (rows: AdminReservationRow[]) => void,
+  onError?: (e: Error) => void,
+): () => void {
+  const date = toDateKey(today())
+  let unsubscribe = () => {}
+  let cancelled = false
+
+  // 会員名は一度だけ取得し、予約は onValue でリアルタイムに反映する。
+  get(ref(db, 'members'))
+    .then((memSnap) => {
+      if (cancelled) return
+      const members: Record<string, { name?: string }> = memSnap.exists()
+        ? memSnap.val()
+        : {}
+      unsubscribe = onValue(
+        ref(db, `reservations/${date}`),
+        (snap) => {
+          const day = (snap.exists() ? snap.val() : {}) as Record<
+            string,
+            ReservationRecord
+          >
+          const rows = Object.entries(day).map(([key, rec]) =>
+            toRow(key, rec, members),
+          )
+          rows.sort((a, b) => a.timeKey.localeCompare(b.timeKey))
+          onData(rows)
+        },
+        (e) => onError?.(e as Error),
+      )
+    })
+    .catch((e) => onError?.(e as Error))
+
+  return () => {
+    cancelled = true
+    unsubscribe()
+  }
+}
+
+/**
+ * 本日の予約1件の状態を更新する。
+ * - "unchecked" にするとチェックイン時刻も消す（未チェックインへ戻す）。
+ * - チェックイン済みの状態へ変えるとき、時刻が無ければ現在時刻を記録する
+ *   （バッジ操作での手動チェックインを兼ねる）。
+ */
 export async function setVisitStatus(
   reservationTimeKey: string,
   status: VisitStatus,
 ): Promise<void> {
   const date = toDateKey(today())
-  await update(ref(db, `reservations/${date}/${reservationTimeKey}`), { status })
+  const path = `reservations/${date}/${reservationTimeKey}`
+
+  if (status === 'unchecked') {
+    await update(ref(db, path), { status, checkInAt: null })
+    return
+  }
+
+  const snap = await get(ref(db, `${path}/checkInAt`))
+  const patch: Record<string, unknown> = { status }
+  if (!snap.exists() || !snap.val()) patch.checkInAt = nowTime()
+  await update(ref(db, path), patch)
 }

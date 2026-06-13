@@ -14,8 +14,8 @@ export interface Member {
   status: string
 }
 
-/** 受付後の診察状態（管理者画面の3段階）。未チェックインは未設定 */
-export type VisitStatus = 'waiting' | 'called' | 'done'
+/** 診察状態（管理者画面の4段階） */
+export type VisitStatus = 'unchecked' | 'waiting' | 'called' | 'done'
 
 // 予約レコード（reservations/{date}/{HHMM}）
 export interface ReservationRecord {
@@ -53,8 +53,8 @@ export interface AdminReservationRow {
   name: string
   /** チェックイン時刻（"14:05"）。未チェックインは null */
   checkInAt: string | null
-  /** 状態。未チェックイン（操作不可）は null */
-  status: VisitStatus | null
+  /** 状態（未チェックイン / 待ち / 呼び済み / 完了） */
+  status: VisitStatus
 }
 
 /** date → (HHMM → 予約レコード) の入れ子マップ */
