@@ -30,10 +30,6 @@ export default function HomePage() {
     }
   }
 
-  function onTodayPlaceholder() {
-    alert('「今日 診てもらう」は次のステップで使えるようになります。')
-  }
-
   return (
     <div className="screen">
       <header className="sticky top-0 z-10 bg-brand-pink px-4 py-3 text-white shadow-md">
@@ -71,9 +67,6 @@ export default function HomePage() {
         <div className="mt-8 flex flex-col gap-4">
           <Button variant="pink" onClick={onReserve}>
             予約する
-          </Button>
-          <Button variant="orange" onClick={onTodayPlaceholder}>
-            今日 診てもらう
           </Button>
         </div>
 
