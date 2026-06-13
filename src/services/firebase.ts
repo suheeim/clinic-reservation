@@ -1,8 +1,16 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, set, update, remove } from 'firebase/database'
-import type { Member, ReservationRecord, ReservationsByDate } from '../types'
+import type {
+  AdminConfig,
+  AdminReservationRow,
+  Member,
+  ReservationRecord,
+  ReservationsByDate,
+  VisitStatus,
+} from '../types'
 import { hashPassword, verifyPassword } from '../utils/password'
-import { timeKey } from '../utils/slots'
+import { timeFromKey, timeKey } from '../utils/slots'
+import { toDateKey, today } from '../utils/date'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDrYB5iRSV0TIPyOjVABj5AWTNEDSB_Lb0',
@@ -193,4 +201,105 @@ export async function saveNewReservation(
   }
   await set(ref(db, `reservations/${date}/${timeKey(time)}`), record)
   return memberNumber
+}
+
+// ── 管理者認証 ────────────────────────────────────────────
+
+/**
+ * 管理者設定（admin/）を取得する。
+ * パスワード未設定（初回）のときは null を返す。
+ */
+export async function getAdminConfig(): Promise<AdminConfig | null> {
+  const snap = await get(ref(db, 'admin'))
+  if (!snap.exists()) return null
+  const data = snap.val()
+  if (!data.passwordHash) return null
+  return {
+    passwordHash: data.passwordHash,
+    securityQuestion: data.securityQuestion ?? '',
+    answerHash: data.answerHash ?? '',
+  }
+}
+
+/**
+ * 初回設定：管理者パスワード・秘密の質問・答えを保存する。
+ * パスワードと答えは bcrypt でハッシュ化する。
+ */
+export async function setupAdmin(
+  password: string,
+  securityQuestion: string,
+  answer: string,
+): Promise<void> {
+  await set(ref(db, 'admin'), {
+    passwordHash: hashPassword(password),
+    securityQuestion,
+    answerHash: hashPassword(answer),
+  })
+}
+
+/** 管理者パスワードを照合する。 */
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const cfg = await getAdminConfig()
+  return cfg ? verifyPassword(password, cfg.passwordHash) : false
+}
+
+/** 秘密の質問の答えを照合する。 */
+export async function verifyAdminAnswer(answer: string): Promise<boolean> {
+  const cfg = await getAdminConfig()
+  return cfg ? verifyPassword(answer, cfg.answerHash) : false
+}
+
+/** 管理者パスワードを再設定する（秘密の質問の正解後）。 */
+export async function updateAdminPassword(password: string): Promise<void> {
+  await update(ref(db, 'admin'), { passwordHash: hashPassword(password) })
+}
+
+// ── 管理者：本日の予約一覧 ────────────────────────────────
+
+/**
+ * 本日の予約を会員名を補完して一覧で返す（予約時間順）。
+ * チェックイン済みで status 未設定のものは "waiting" とみなす。
+ */
+export async function getTodayReservations(): Promise<AdminReservationRow[]> {
+  const date = toDateKey(today())
+  const [resSnap, memSnap] = await Promise.all([
+    get(ref(db, `reservations/${date}`)),
+    get(ref(db, 'members')),
+  ])
+  if (!resSnap.exists()) return []
+
+  const members: Record<string, { name?: string }> = memSnap.exists()
+    ? memSnap.val()
+    : {}
+  const day = resSnap.val() as Record<string, ReservationRecord>
+
+  const rows: AdminReservationRow[] = Object.entries(day).map(([key, rec]) => {
+    const name =
+      members[rec.memberNumber]?.name ?? (rec.type === 'new' ? '新患' : '—')
+    const checkInAt = rec.checkInAt ?? null
+    // 未チェックインは status を持たない（操作不可）
+    const status: VisitStatus | null = checkInAt
+      ? (rec.status ?? 'waiting')
+      : null
+    return {
+      timeKey: key,
+      time: timeFromKey(key),
+      memberNumber: rec.memberNumber,
+      name,
+      checkInAt,
+      status,
+    }
+  })
+
+  rows.sort((a, b) => a.timeKey.localeCompare(b.timeKey))
+  return rows
+}
+
+/** 本日の予約1件の状態（待ち→呼び済み→完了）を更新する。 */
+export async function setVisitStatus(
+  reservationTimeKey: string,
+  status: VisitStatus,
+): Promise<void> {
+  const date = toDateKey(today())
+  await update(ref(db, `reservations/${date}/${reservationTimeKey}`), { status })
 }

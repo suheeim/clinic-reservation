@@ -24,6 +24,11 @@ export function timeKey(time: string): string {
   return time.replace(':', '')
 }
 
+/** "1400" → "14:00"（Firebase のキーから表示用へ） */
+export function timeFromKey(key: string): string {
+  return key.length === 4 ? `${key.slice(0, 2)}:${key.slice(2)}` : key
+}
+
 /** 指定スロットが予約済みか（定員1） */
 export function isSlotTaken(
   reservations: ReservationsByDate,
