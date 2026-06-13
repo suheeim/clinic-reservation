@@ -40,8 +40,18 @@ export default function AdminPage() {
         ? '管理者画面'
         : '管理者ログイン'
 
+  // ダッシュボードは病院の PC で見るため横幅を広く取る。
+  // 初回設定・ログインは従来どおりスマホ向けの縦長レイアウト。
+  const isDashboard = phase === 'dashboard'
+
   return (
-    <div className="screen">
+    <div
+      className={
+        isDashboard
+          ? 'flex min-h-screen w-full flex-col bg-brand-cream'
+          : 'screen'
+      }
+    >
       <Header
         title={title}
         onBack={
