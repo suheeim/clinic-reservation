@@ -126,7 +126,15 @@ export default function AdminDashboard() {
           </p>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full min-w-[680px] border-collapse text-[14px]">
+            <table className="w-full min-w-[700px] table-fixed border-collapse text-[14px]">
+              <colgroup>
+                <col style={{ width: '96px' }} />
+                <col style={{ width: '104px' }} />
+                <col />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '150px' }} />
+                <col style={{ width: '120px' }} />
+              </colgroup>
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50 text-left text-brand-sub">
                   <th className="px-3 py-2 font-bold">予約時間</th>
@@ -152,7 +160,7 @@ export default function AdminDashboard() {
                       <td className="whitespace-nowrap px-3 py-2 tabular-nums text-brand-sub">
                         {row.memberNumber}
                       </td>
-                      <td className="px-3 py-2">{row.name}</td>
+                      <td className="truncate px-3 py-2">{row.name}</td>
                       <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                         {row.checkInAt ?? '—'}
                       </td>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import Button from '../../components/Common/Button'
 import { setupAdmin } from '../../services/firebase'
+import { errorBoxCls, inputCls, labelCls, primaryBtnCls } from './adminUi'
 
 interface Props {
   /** 設定完了後に呼ばれる（ダッシュボードへ） */
@@ -50,15 +50,13 @@ export default function AdminSetup({ onDone }: Props) {
   }
 
   return (
-    <div className="screen-body flex flex-col">
-      <p className="mt-2 text-[17px] text-brand-sub">
-        管理者パスワードを設定してください。
-        <br />
-        パスワードを忘れたときは秘密の質問で再設定できます。
+    <div>
+      <p className="text-[14px] leading-relaxed text-brand-sub">
+        管理者パスワードを設定してください。パスワードを忘れたときは秘密の質問で再設定できます。
       </p>
 
       <div className="mt-5">
-        <label className="text-[18px] font-bold" htmlFor="admin-pw">
+        <label className={labelCls} htmlFor="admin-pw">
           新しいパスワード
         </label>
         <input
@@ -71,12 +69,12 @@ export default function AdminSetup({ onDone }: Props) {
             if (error) setError('')
           }}
           placeholder="4文字以上"
-          className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[22px] text-brand-text focus:border-brand-pink"
+          className={inputCls}
         />
       </div>
 
-      <div className="mt-5">
-        <label className="text-[18px] font-bold" htmlFor="admin-pw2">
+      <div className="mt-4">
+        <label className={labelCls} htmlFor="admin-pw2">
           パスワード（確認）
         </label>
         <input
@@ -89,12 +87,12 @@ export default function AdminSetup({ onDone }: Props) {
             if (error) setError('')
           }}
           placeholder="もう一度入力"
-          className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[22px] text-brand-text focus:border-brand-pink"
+          className={inputCls}
         />
       </div>
 
-      <div className="mt-5">
-        <label className="text-[18px] font-bold" htmlFor="admin-q">
+      <div className="mt-4">
+        <label className={labelCls} htmlFor="admin-q">
           秘密の質問
         </label>
         <input
@@ -106,12 +104,12 @@ export default function AdminSetup({ onDone }: Props) {
             if (error) setError('')
           }}
           placeholder="例：最初に勤めた病院は？"
-          className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[20px] text-brand-text focus:border-brand-pink"
+          className={inputCls}
         />
       </div>
 
-      <div className="mt-5">
-        <label className="text-[18px] font-bold" htmlFor="admin-a">
+      <div className="mt-4">
+        <label className={labelCls} htmlFor="admin-a">
           答え
         </label>
         <input
@@ -124,25 +122,24 @@ export default function AdminSetup({ onDone }: Props) {
             if (error) setError('')
           }}
           placeholder="答えを入力"
-          className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[20px] text-brand-text focus:border-brand-pink"
+          className={inputCls}
         />
       </div>
 
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 flex items-center gap-2 rounded-xl border-2 border-brand-orange bg-orange-50 px-4 py-3 text-[17px] font-bold text-brand-orange"
-        >
+        <div role="alert" className={errorBoxCls}>
           <span aria-hidden="true">⚠</span>
           <span>{error}</span>
         </div>
       ) : null}
 
-      <div className="mt-auto pb-2 pt-8">
-        <Button onClick={handleSave} disabled={!isValid || saving}>
-          {saving ? '保存中…' : '設定する'}
-        </Button>
-      </div>
+      <button
+        onClick={handleSave}
+        disabled={!isValid || saving}
+        className={`${primaryBtnCls} mt-6`}
+      >
+        {saving ? '保存中…' : '設定する'}
+      </button>
     </div>
   )
 }

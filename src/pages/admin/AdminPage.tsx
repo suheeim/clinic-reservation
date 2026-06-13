@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../../components/Common/Header'
-import Button from '../../components/Common/Button'
 import { getAdminConfig } from '../../services/firebase'
 import AdminSetup from './AdminSetup'
 import AdminLogin from './AdminLogin'
 import AdminDashboard from './AdminDashboard'
+import { primaryBtnCls } from './adminUi'
 
 type Phase = 'loading' | 'error' | 'setup' | 'login' | 'dashboard'
 
@@ -40,18 +40,12 @@ export default function AdminPage() {
         ? '管理者画面'
         : '管理者ログイン'
 
-  // ダッシュボードは病院の PC で見るため横幅を広く取る。
-  // 初回設定・ログインは従来どおりスマホ向けの縦長レイアウト。
+  // 管理者画面は病院の PC で操作するため、全幅レイアウトにする。
+  // ダッシュボードは広い表、認証系は中央の適度な幅のカードで表示する。
   const isDashboard = phase === 'dashboard'
 
   return (
-    <div
-      className={
-        isDashboard
-          ? 'flex min-h-screen w-full flex-col bg-brand-cream'
-          : 'screen'
-      }
-    >
+    <div className="flex min-h-screen w-full flex-col bg-brand-cream">
       <Header
         title={title}
         onBack={
@@ -61,27 +55,31 @@ export default function AdminPage() {
         }
       />
 
-      {phase === 'loading' ? (
-        <div className="screen-body">
-          <p className="mt-10 text-center text-[18px] text-brand-sub">
-            読み込み中…
-          </p>
-        </div>
-      ) : phase === 'error' ? (
-        <div className="screen-body flex flex-col">
-          <p className="mt-10 text-center text-[18px] text-brand-sub">
-            通信に失敗しました。
-          </p>
-          <div className="mt-6">
-            <Button onClick={() => void detect()}>もう一度</Button>
+      {isDashboard ? (
+        <AdminDashboard />
+      ) : (
+        <div className="flex flex-1 items-center justify-center px-4 py-10">
+          <div className="w-full max-w-[400px] rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+            {phase === 'loading' ? (
+              <p className="py-6 text-center text-[15px] text-brand-sub">
+                読み込み中…
+              </p>
+            ) : phase === 'error' ? (
+              <div className="flex flex-col gap-4 py-2">
+                <p className="text-center text-[15px] text-brand-sub">
+                  通信に失敗しました。
+                </p>
+                <button onClick={() => void detect()} className={primaryBtnCls}>
+                  もう一度
+                </button>
+              </div>
+            ) : phase === 'setup' ? (
+              <AdminSetup onDone={() => setPhase('dashboard')} />
+            ) : (
+              <AdminLogin onSuccess={() => setPhase('dashboard')} />
+            )}
           </div>
         </div>
-      ) : phase === 'setup' ? (
-        <AdminSetup onDone={() => setPhase('dashboard')} />
-      ) : phase === 'login' ? (
-        <AdminLogin onSuccess={() => setPhase('dashboard')} />
-      ) : (
-        <AdminDashboard />
       )}
     </div>
   )

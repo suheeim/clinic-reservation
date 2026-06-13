@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import Button from '../../components/Common/Button'
 import {
   getAdminConfig,
   updateAdminPassword,
   verifyAdminAnswer,
   verifyAdminPassword,
 } from '../../services/firebase'
+import {
+  errorBoxCls,
+  grayBtnCls,
+  inputCls,
+  labelCls,
+  noticeBoxCls,
+  primaryBtnCls,
+} from './adminUi'
 
 interface Props {
   /** ログイン成功時に呼ばれる（ダッシュボードへ） */
@@ -123,10 +130,7 @@ export default function AdminLogin({ onSuccess }: Props) {
   }
 
   const alertBox = error ? (
-    <div
-      role="alert"
-      className="mt-4 flex items-center gap-2 rounded-xl border-2 border-brand-orange bg-orange-50 px-4 py-3 text-[17px] font-bold text-brand-orange"
-    >
+    <div role="alert" className={errorBoxCls}>
       <span aria-hidden="true">⚠</span>
       <span>{error}</span>
     </div>
@@ -134,15 +138,15 @@ export default function AdminLogin({ onSuccess }: Props) {
 
   if (mode === 'forgot') {
     return (
-      <div className="screen-body flex flex-col">
-        <div className="mt-4">
-          <p className="text-[18px] font-bold">秘密の質問</p>
-          <p className="mt-2 rounded-2xl bg-white px-5 py-4 text-[20px] text-brand-text shadow-sm">
+      <div>
+        <div>
+          <p className="text-[13px] font-bold text-brand-text">秘密の質問</p>
+          <p className="mt-1.5 rounded-lg bg-gray-50 px-3 py-2.5 text-[15px] text-brand-text">
             {question}
           </p>
         </div>
-        <div className="mt-5">
-          <label className="text-[18px] font-bold" htmlFor="admin-answer">
+        <div className="mt-4">
+          <label className={labelCls} htmlFor="admin-answer">
             答え
           </label>
           <input
@@ -155,17 +159,21 @@ export default function AdminLogin({ onSuccess }: Props) {
               if (error) setError('')
             }}
             placeholder="答えを入力"
-            className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[20px] text-brand-text focus:border-brand-pink"
+            className={inputCls}
           />
         </div>
         {alertBox}
-        <div className="mt-auto flex flex-col gap-3 pb-2 pt-8">
-          <Button onClick={handleCheckAnswer} disabled={busy || !answer.trim()}>
+        <div className="mt-6 flex flex-col gap-3">
+          <button
+            onClick={handleCheckAnswer}
+            disabled={busy || !answer.trim()}
+            className={primaryBtnCls}
+          >
             {busy ? '確認中…' : '答え合わせ'}
-          </Button>
-          <Button variant="gray" onClick={backToLogin} disabled={busy}>
+          </button>
+          <button onClick={backToLogin} disabled={busy} className={grayBtnCls}>
             ログインに戻る
-          </Button>
+          </button>
         </div>
       </div>
     )
@@ -173,12 +181,12 @@ export default function AdminLogin({ onSuccess }: Props) {
 
   if (mode === 'reset') {
     return (
-      <div className="screen-body flex flex-col">
-        <p className="mt-2 text-[17px] text-brand-sub">
+      <div>
+        <p className="text-[14px] text-brand-sub">
           新しいパスワードを設定してください。
         </p>
         <div className="mt-5">
-          <label className="text-[18px] font-bold" htmlFor="admin-new-pw">
+          <label className={labelCls} htmlFor="admin-new-pw">
             新しいパスワード
           </label>
           <input
@@ -191,11 +199,11 @@ export default function AdminLogin({ onSuccess }: Props) {
               if (error) setError('')
             }}
             placeholder="4文字以上"
-            className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[22px] text-brand-text focus:border-brand-pink"
+            className={inputCls}
           />
         </div>
-        <div className="mt-5">
-          <label className="text-[18px] font-bold" htmlFor="admin-new-pw2">
+        <div className="mt-4">
+          <label className={labelCls} htmlFor="admin-new-pw2">
             パスワード（確認）
           </label>
           <input
@@ -208,17 +216,17 @@ export default function AdminLogin({ onSuccess }: Props) {
               if (error) setError('')
             }}
             placeholder="もう一度入力"
-            className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[22px] text-brand-text focus:border-brand-pink"
+            className={inputCls}
           />
         </div>
         {alertBox}
-        <div className="mt-auto flex flex-col gap-3 pb-2 pt-8">
-          <Button onClick={handleReset} disabled={busy}>
+        <div className="mt-6 flex flex-col gap-3">
+          <button onClick={handleReset} disabled={busy} className={primaryBtnCls}>
             {busy ? '保存中…' : 'パスワードを再設定'}
-          </Button>
-          <Button variant="gray" onClick={backToLogin} disabled={busy}>
+          </button>
+          <button onClick={backToLogin} disabled={busy} className={grayBtnCls}>
             ログインに戻る
-          </Button>
+          </button>
         </div>
       </div>
     )
@@ -226,15 +234,11 @@ export default function AdminLogin({ onSuccess }: Props) {
 
   // mode === 'login'
   return (
-    <div className="screen-body flex flex-col">
-      {notice ? (
-        <div className="mt-4 rounded-xl border-2 border-brand-green bg-green-50 px-4 py-3 text-[16px] font-bold text-brand-green">
-          {notice}
-        </div>
-      ) : null}
+    <div>
+      {notice ? <div className={noticeBoxCls}>{notice}</div> : null}
 
-      <div className="mt-4">
-        <label className="text-[18px] font-bold" htmlFor="admin-login-pw">
+      <div>
+        <label className={labelCls} htmlFor="admin-login-pw">
           パスワード
         </label>
         <input
@@ -250,27 +254,29 @@ export default function AdminLogin({ onSuccess }: Props) {
             if (e.key === 'Enter') void handleLogin()
           }}
           placeholder="パスワード"
-          className="mt-2 w-full rounded-2xl border-2 border-gray-300 bg-white px-5 py-4 text-[22px] text-brand-text focus:border-brand-pink"
+          className={inputCls}
         />
       </div>
 
       {alertBox}
 
-      <div className="mt-6">
+      <div className="mt-4">
         <button
           onClick={startForgot}
           disabled={busy}
-          className="min-h-[44px] text-[16px] text-brand-sub underline"
+          className="text-[14px] text-brand-sub underline"
         >
           パスワードを忘れた
         </button>
       </div>
 
-      <div className="mt-auto pb-2 pt-8">
-        <Button onClick={handleLogin} disabled={busy || !password}>
-          {busy ? '確認中…' : 'ログイン'}
-        </Button>
-      </div>
+      <button
+        onClick={handleLogin}
+        disabled={busy || !password}
+        className={`${primaryBtnCls} mt-6`}
+      >
+        {busy ? '確認中…' : 'ログイン'}
+      </button>
     </div>
   )
 }
