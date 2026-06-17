@@ -10,6 +10,7 @@ import TimeSelection from './pages/reservation/TimeSelection'
 import Confirmation from './pages/reservation/Confirmation'
 import Complete from './pages/reservation/Complete'
 import AdminPage from './pages/admin/AdminPage'
+import CheckInPage from './pages/checkin/CheckInPage'
 import { useSession } from './context/SessionContext'
 
 /** ログイン必須の画面を保護する。未ログインはトップへ。 */
@@ -48,6 +49,7 @@ export default function App() {
       <Route path="/reserve/confirm" element={<Confirmation />} />
       <Route path="/reserve/complete" element={<Complete />} />
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/checkin" element={<CheckInPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

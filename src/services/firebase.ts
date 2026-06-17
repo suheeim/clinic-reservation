@@ -357,3 +357,49 @@ export async function setVisitStatus(
   if (!snap.exists() || !snap.val()) patch.checkInAt = nowTime()
   await update(ref(db, path), patch)
 }
+
+// ── 受付（チェックイン） ──────────────────────────────────
+
+/**
+ * 本日の予約から会員番号で予約キー（HHMM）を逆引きする。
+ * 見つからなければ null。
+ * 同一会員番号の本日予約は1件の前提（最初の一致を返す）。
+ */
+export async function findTodayReservationKey(
+  memberNumber: string,
+): Promise<string | null> {
+  const date = toDateKey(today())
+  const day = await getReservationsForDate(date)
+  for (const [key, rec] of Object.entries(day)) {
+    if (rec.memberNumber === memberNumber) return key
+  }
+  return null
+}
+
+export type CheckInResult =
+  | { ok: true }
+  | { ok: false; reason: 'no-reservation' | 'already-checked-in' }
+
+/**
+ * 会員番号で受付（チェックイン）する。
+ * 本日の予約を逆引きし、見つかれば status を 'waiting' に更新する。
+ * すでに受付済み（unchecked 以外）なら、その旨を返す。
+ * 本会員・仮会員は区別しない。
+ */
+export async function checkInByMemberNumber(
+  memberNumber: string,
+): Promise<CheckInResult> {
+  const key = await findTodayReservationKey(memberNumber)
+  if (!key) return { ok: false, reason: 'no-reservation' }
+
+  const date = toDateKey(today())
+  const snap = await get(ref(db, `reservations/${date}/${key}`))
+  const rec = snap.val() as ReservationRecord
+
+  if (rec.status && rec.status !== 'unchecked') {
+    return { ok: false, reason: 'already-checked-in' }
+  }
+
+  await setVisitStatus(key, 'waiting')
+  return { ok: true }
+}
