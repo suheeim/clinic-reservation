@@ -31,6 +31,33 @@ export interface ReservationRecord {
   status?: VisitStatus
 }
 
+// ── 運用設定（admin/settings/・容量ベース予約モデル） ──
+// 認証用の AdminConfig とは別物。段階2以降もこの下に項目を足していく。
+
+export type WeekdayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
+
+/** 曜日ごとの「定休日 ＋ 先生人数」。closed:true のとき am/pm は無視する */
+export interface WeekdaySetting {
+  closed: boolean
+  am: number // 午前の先生人数
+  pm: number // 午後の先生人数
+}
+
+/** 営業時間（"09:00" 形式） */
+export interface BusinessHours {
+  start: string
+  end: string
+}
+
+/** クリニックの運用設定（admin/settings） */
+export interface ClinicSettings {
+  bandMinutes: number // 枠の基準時間（容量計算の基準・分）
+  slotUnit: number // 枠の単位（刻み・分）
+  treatmentOptions: number[] // 提供する施術時間（分）
+  weekdays: Record<WeekdayKey, WeekdaySetting>
+  hours: { am: BusinessHours; pm: BusinessHours }
+}
+
 // 管理者設定（admin/）。パスワードと秘密の答えは bcrypt ハッシュで保存
 export interface AdminConfig {
   /** 管理者パスワードのハッシュ */

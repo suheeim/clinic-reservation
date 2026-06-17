@@ -5,9 +5,16 @@ import { getAdminConfig } from '../../services/firebase'
 import AdminSetup from './AdminSetup'
 import AdminLogin from './AdminLogin'
 import AdminDashboard from './AdminDashboard'
+import AdminSettings from './AdminSettings'
 import { primaryBtnCls } from './adminUi'
 
-type Phase = 'loading' | 'error' | 'setup' | 'login' | 'dashboard'
+type Phase =
+  | 'loading'
+  | 'error'
+  | 'setup'
+  | 'login'
+  | 'dashboard'
+  | 'settings'
 
 /**
  * 管理者画面のエントリ。
@@ -38,12 +45,12 @@ export default function AdminPage() {
       ? '管理者 初回設定'
       : phase === 'dashboard'
         ? '管理者画面'
-        : '管理者ログイン'
+        : phase === 'settings'
+          ? '基本設定'
+          : '管理者ログイン'
 
   // 管理者画面は病院の PC で操作するため、全幅レイアウトにする。
-  // ダッシュボードは広い表、認証系は中央の適度な幅のカードで表示する。
-  const isDashboard = phase === 'dashboard'
-
+  // ダッシュボード・設定は広い領域、認証系は中央の適度な幅のカードで表示する。
   return (
     <div className="flex min-h-screen w-full flex-col bg-brand-cream">
       <Header
@@ -51,12 +58,16 @@ export default function AdminPage() {
         onBack={
           phase === 'dashboard'
             ? () => setPhase('login')
-            : () => navigate('/')
+            : phase === 'settings'
+              ? () => setPhase('dashboard')
+              : () => navigate('/')
         }
       />
 
-      {isDashboard ? (
-        <AdminDashboard />
+      {phase === 'dashboard' ? (
+        <AdminDashboard onOpenSettings={() => setPhase('settings')} />
+      ) : phase === 'settings' ? (
+        <AdminSettings />
       ) : (
         <div className="flex flex-1 items-center justify-center px-4 py-10">
           <div className="w-full max-w-[400px] rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">

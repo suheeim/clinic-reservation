@@ -45,7 +45,12 @@ interface MenuState {
   left: number
 }
 
-export default function AdminDashboard() {
+interface Props {
+  /** 基本設定画面へ切り替える */
+  onOpenSettings: () => void
+}
+
+export default function AdminDashboard({ onOpenSettings }: Props) {
   const [rows, setRows] = useState<AdminReservationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -102,9 +107,15 @@ export default function AdminDashboard() {
   return (
     <div className="flex-1 px-4 py-5 md:px-8">
       <div className="mx-auto w-full max-w-[1100px]">
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3">
           <p className="text-[20px] font-bold">本日の予約</p>
           <p className="text-[16px] text-brand-sub">{dateLabel}</p>
+          <button
+            onClick={onOpenSettings}
+            className="ml-auto rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100"
+          >
+            基本設定
+          </button>
         </div>
 
         {error ? (

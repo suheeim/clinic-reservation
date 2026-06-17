@@ -11,6 +11,7 @@ import {
 import type {
   AdminConfig,
   AdminReservationRow,
+  ClinicSettings,
   Member,
   ReservationRecord,
   ReservationsByDate,
@@ -402,4 +403,43 @@ export async function checkInByMemberNumber(
 
   await setVisitStatus(key, 'waiting')
   return { ok: true }
+}
+
+// ── 管理者：運用設定（容量ベース予約モデル） ──────────────
+
+/**
+ * 設定未保存（初回）のときに画面の初期表示で使うデフォルト値。
+ * 月〜金は営業（午前・午後とも先生1人）、土日は定休日。
+ */
+export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
+  bandMinutes: 60,
+  slotUnit: 10,
+  treatmentOptions: [],
+  weekdays: {
+    mon: { closed: false, am: 1, pm: 1 },
+    tue: { closed: false, am: 1, pm: 1 },
+    wed: { closed: false, am: 1, pm: 1 },
+    thu: { closed: false, am: 1, pm: 1 },
+    fri: { closed: false, am: 1, pm: 1 },
+    sat: { closed: true, am: 0, pm: 0 },
+    sun: { closed: true, am: 0, pm: 0 },
+  },
+  hours: {
+    am: { start: '09:00', end: '12:00' },
+    pm: { start: '14:00', end: '18:00' },
+  },
+}
+
+/** 運用設定（admin/settings）を取得する。未設定（初回）なら null。 */
+export async function getClinicSettings(): Promise<ClinicSettings | null> {
+  const snap = await get(ref(db, 'admin/settings'))
+  if (!snap.exists()) return null
+  return snap.val() as ClinicSettings
+}
+
+/** 運用設定（admin/settings）を保存する。 */
+export async function saveClinicSettings(
+  settings: ClinicSettings,
+): Promise<void> {
+  await set(ref(db, 'admin/settings'), settings)
 }
