@@ -332,7 +332,13 @@ export default function AdminSettings() {
                         type="checkbox"
                         checked={w.closed}
                         onChange={(e) =>
-                          updateWeekday(key, { closed: e.target.checked })
+                          updateWeekday(
+                            key,
+                            // 定休日にすると人数は0に。外したときは0のまま。
+                            e.target.checked
+                              ? { closed: true, am: 0, pm: 0 }
+                              : { closed: false },
+                          )
                         }
                         aria-label={`${label}を定休日にする`}
                         className="h-5 w-5 accent-brand-pink"
