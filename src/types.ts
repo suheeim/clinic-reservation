@@ -55,7 +55,10 @@ export interface ClinicSettings {
   slotUnit: number // 枠の単位（刻み・分）
   treatmentOptions: number[] // 提供する施術時間（分）
   weekdays: Record<WeekdayKey, WeekdaySetting>
-  hours: { am: BusinessHours; pm: BusinessHours }
+  hours: {
+    weekday: { am: BusinessHours; pm: BusinessHours } // 平日（月〜金）
+    saturday: { am: BusinessHours; pm: BusinessHours } // 土曜
+  }
 }
 
 // 管理者設定（admin/）。パスワードと秘密の答えは bcrypt ハッシュで保存

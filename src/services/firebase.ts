@@ -425,8 +425,14 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     sun: { closed: true, am: 0, pm: 0 },
   },
   hours: {
-    am: { start: '09:00', end: '12:00' },
-    pm: { start: '14:00', end: '18:00' },
+    weekday: {
+      am: { start: '09:00', end: '12:00' },
+      pm: { start: '14:00', end: '18:00' },
+    },
+    saturday: {
+      am: { start: '09:00', end: '12:00' },
+      pm: { start: '14:00', end: '18:00' },
+    },
   },
 }
 

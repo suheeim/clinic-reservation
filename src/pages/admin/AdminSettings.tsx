@@ -4,7 +4,12 @@ import {
   getClinicSettings,
   saveClinicSettings,
 } from '../../services/firebase'
-import type { ClinicSettings, WeekdayKey, WeekdaySetting } from '../../types'
+import type {
+  BusinessHours,
+  ClinicSettings,
+  WeekdayKey,
+  WeekdaySetting,
+} from '../../types'
 import { errorBoxCls, noticeBoxCls, primaryBtnCls } from './adminUi'
 
 /** 曜日の表示順とラベル */
@@ -16,6 +21,12 @@ const WEEKDAYS: { key: WeekdayKey; label: string }[] = [
   { key: 'fri', label: '金曜' },
   { key: 'sat', label: '土曜' },
   { key: 'sun', label: '日曜' },
+]
+
+/** 営業時間のパターン（平日・土曜）の表示順とラベル */
+const HOURS_PATTERNS: { key: 'weekday' | 'saturday'; label: string }[] = [
+  { key: 'weekday', label: '平日（月〜金）' },
+  { key: 'saturday', label: '土曜' },
 ]
 
 /** 営業時間の選択肢（06:00〜22:00 を30分刻み）。 */
@@ -58,10 +69,34 @@ function normalize(s: ClinicSettings): ClinicSettings {
       ? s.treatmentOptions
       : [],
     weekdays: { ...d.weekdays, ...(s.weekdays ?? {}) },
-    hours: {
-      am: { ...d.hours.am, ...(s.hours?.am ?? {}) },
-      pm: { ...d.hours.pm, ...(s.hours?.pm ?? {}) },
-    },
+    hours: normalizeHours(s.hours),
+  }
+}
+
+type HoursPair = { am: BusinessHours; pm: BusinessHours }
+
+/**
+ * 営業時間を平日・土曜の2パターンへ正規化する。
+ * 旧構造（hours.am / hours.pm の1セット）で保存されたデータは
+ * 平日・土曜の両方へ流用し、無ければデフォルトで補う。
+ */
+function normalizeHours(raw: unknown): ClinicSettings['hours'] {
+  const d = DEFAULT_CLINIC_SETTINGS.hours
+  const h = (raw ?? {}) as {
+    am?: BusinessHours
+    pm?: BusinessHours
+    weekday?: Partial<HoursPair>
+    saturday?: Partial<HoursPair>
+  }
+  // 旧構造（am/pm 直下）があれば両パターンの流用元にする。
+  const legacy = h.am && h.pm ? { am: h.am, pm: h.pm } : undefined
+  const merge = (pair: Partial<HoursPair> | undefined, def: HoursPair) => ({
+    am: { ...def.am, ...(pair?.am ?? {}) },
+    pm: { ...def.pm, ...(pair?.pm ?? {}) },
+  })
+  return {
+    weekday: merge(h.weekday ?? legacy, d.weekday),
+    saturday: merge(h.saturday ?? legacy, d.saturday),
   }
 }
 
@@ -174,17 +209,24 @@ export default function AdminSettings() {
 
   // 開始を変えて終了が前にならないよう、必要なら終了を直後の時刻へ寄せる。
   function updateHours(
+    pattern: 'weekday' | 'saturday',
     period: 'am' | 'pm',
     field: 'start' | 'end',
     value: string,
   ) {
     mutate((s) => {
-      const h = { ...s.hours[period], [field]: value }
+      const h = { ...s.hours[pattern][period], [field]: value }
       if (field === 'start' && h.end <= value) {
         const next = TIME_OPTIONS.find((t) => t > value)
         if (next) h.end = next
       }
-      return { ...s, hours: { ...s.hours, [period]: h } }
+      return {
+        ...s,
+        hours: {
+          ...s.hours,
+          [pattern]: { ...s.hours[pattern], [period]: h },
+        },
+      }
     })
   }
 
@@ -377,48 +419,59 @@ export default function AdminSettings() {
           </table>
         </section>
 
-        {/* (D) 営業時間 */}
+        {/* (D) 営業時間（平日・土曜の2パターン） */}
         <section className={sectionCls}>
           <h2 className={sectionTitleCls}>営業時間</h2>
-          <div className="mt-4 flex flex-col gap-3">
-            {(['am', 'pm'] as const).map((period) => {
-              const h = settings.hours[period]
-              const label = period === 'am' ? '午前' : '午後'
-              return (
-                <div key={period} className="flex items-center gap-2">
-                  <span className="w-12 text-[14px] font-bold text-brand-text">
-                    {label}
-                  </span>
-                  <select
-                    value={h.start}
-                    onChange={(e) =>
-                      updateHours(period, 'start', e.target.value)
-                    }
-                    aria-label={`${label}の開始時刻`}
-                    className={selectCls}
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-brand-sub">〜</span>
-                  <select
-                    value={h.end}
-                    onChange={(e) => updateHours(period, 'end', e.target.value)}
-                    aria-label={`${label}の終了時刻`}
-                    className={selectCls}
-                  >
-                    {TIME_OPTIONS.filter((t) => t > h.start).map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+          <div className="mt-4 flex flex-col gap-5">
+            {HOURS_PATTERNS.map(({ key: pattern, label: patternLabel }) => (
+              <div key={pattern}>
+                <p className="text-[14px] font-bold text-brand-text">
+                  {patternLabel}
+                </p>
+                <div className="mt-2 flex flex-col gap-3">
+                  {(['am', 'pm'] as const).map((period) => {
+                    const h = settings.hours[pattern][period]
+                    const label = period === 'am' ? '午前' : '午後'
+                    return (
+                      <div key={period} className="flex items-center gap-2">
+                        <span className="w-12 text-[14px] font-bold text-brand-text">
+                          {label}
+                        </span>
+                        <select
+                          value={h.start}
+                          onChange={(e) =>
+                            updateHours(pattern, period, 'start', e.target.value)
+                          }
+                          aria-label={`${patternLabel}${label}の開始時刻`}
+                          className={selectCls}
+                        >
+                          {TIME_OPTIONS.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-brand-sub">〜</span>
+                        <select
+                          value={h.end}
+                          onChange={(e) =>
+                            updateHours(pattern, period, 'end', e.target.value)
+                          }
+                          aria-label={`${patternLabel}${label}の終了時刻`}
+                          className={selectCls}
+                        >
+                          {TIME_OPTIONS.filter((t) => t > h.start).map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  })}
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         </section>
 
