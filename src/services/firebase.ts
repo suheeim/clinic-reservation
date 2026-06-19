@@ -434,6 +434,8 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
       pm: { start: '14:00', end: '18:00' },
     },
   },
+  holidayAutoClose: true,
+  closedPeriods: [],
 }
 
 /** 運用設定（admin/settings）を取得する。未設定（初回）なら null。 */

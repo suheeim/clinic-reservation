@@ -7,9 +7,11 @@ import {
 import type {
   BusinessHours,
   ClinicSettings,
+  ClosedPeriod,
   WeekdayKey,
   WeekdaySetting,
 } from '../../types'
+import { fromDateKey, weekdayLabel } from '../../utils/date'
 import { errorBoxCls, noticeBoxCls, primaryBtnCls } from './adminUi'
 
 /** 曜日の表示順とラベル */
@@ -70,7 +72,27 @@ function normalize(s: ClinicSettings): ClinicSettings {
       : [],
     weekdays: { ...d.weekdays, ...(s.weekdays ?? {}) },
     hours: normalizeHours(s.hours),
+    // 旧データに無ければ祝日自動休診は ON。closedPeriods は
+    // Firebase が空配列を null で返すため、配列でなければ [] に補う。
+    holidayAutoClose: s.holidayAutoClose ?? d.holidayAutoClose,
+    closedPeriods: Array.isArray(s.closedPeriods) ? s.closedPeriods : [],
   }
+}
+
+/** 日付キー（"2026-12-29"）を「2026/12/29(火)」に整える。 */
+function formatClosedDate(key: string): string {
+  const d = fromDateKey(key)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}/${m}/${day}(${weekdayLabel(d)})`
+}
+
+/** 期間を「2026/12/29(火) 〜 2027/01/03(日)」に。単日は片方だけ表示。 */
+function formatClosedPeriod(p: ClosedPeriod): string {
+  const startLabel = formatClosedDate(p.start)
+  if (p.start === p.end) return startLabel
+  return `${startLabel} 〜 ${formatClosedDate(p.end)}`
 }
 
 type HoursPair = { am: BusinessHours; pm: BusinessHours }
@@ -106,6 +128,9 @@ const numInputCls =
 const selectCls =
   'rounded-lg border-2 border-gray-300 bg-white px-2 py-1.5 text-[15px] text-brand-text focus:border-brand-pink'
 
+const dateInputCls =
+  'rounded-lg border-2 border-gray-300 bg-white px-2 py-1.5 text-[15px] text-brand-text focus:border-brand-pink'
+
 const sectionCls = 'rounded-xl border border-gray-200 bg-white p-5 shadow-sm'
 const sectionTitleCls = 'text-[16px] font-bold text-brand-text'
 
@@ -118,6 +143,9 @@ export default function AdminSettings() {
     DEFAULT_CLINIC_SETTINGS,
   )
   const [baseStaff, setBaseStaff] = useState(1)
+  // 特定休診日の入力中の開始日・終了日（追加するまでの一時値）。
+  const [periodStart, setPeriodStart] = useState('')
+  const [periodEnd, setPeriodEnd] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -228,6 +256,35 @@ export default function AdminSettings() {
         },
       }
     })
+  }
+
+  // 開始日・終了日が両方入っていて開始日 ≤ 終了日のときだけ追加できる。
+  const canAddPeriod = !!periodStart && !!periodEnd && periodStart <= periodEnd
+
+  function addClosedPeriod() {
+    if (!canAddPeriod) return
+    mutate((s) => ({
+      ...s,
+      closedPeriods: [
+        ...s.closedPeriods,
+        { start: periodStart, end: periodEnd },
+      ].sort((a, b) => a.start.localeCompare(b.start)),
+    }))
+    setPeriodStart('')
+    setPeriodEnd('')
+  }
+
+  function removeClosedPeriod(index: number) {
+    mutate((s) => ({
+      ...s,
+      closedPeriods: s.closedPeriods.filter((_, i) => i !== index),
+    }))
+  }
+
+  // 開始日を変えたら、終了日が前にならないよう開始日へ寄せる。
+  function updatePeriodStart(value: string) {
+    setPeriodStart(value)
+    if (periodEnd && periodEnd < value) setPeriodEnd(value)
   }
 
   async function handleSave() {
@@ -472,6 +529,92 @@ export default function AdminSettings() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* (E) 休みの設定（祝日自動休診＋特定休診日） */}
+        <section className={sectionCls}>
+          <h2 className={sectionTitleCls}>休みの設定</h2>
+
+          {/* 祝日自動休診トグル */}
+          <div className="mt-4">
+            <p className="text-[14px] font-bold text-brand-text">祝日</p>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-[14px] text-brand-text">
+              <input
+                type="checkbox"
+                checked={settings.holidayAutoClose}
+                onChange={(e) =>
+                  mutate((s) => ({
+                    ...s,
+                    holidayAutoClose: e.target.checked,
+                  }))
+                }
+                className="h-5 w-5 accent-brand-pink"
+              />
+              日本の祝日を自動で休診にする
+            </label>
+          </div>
+
+          {/* 特定休診日（期間リスト） */}
+          <div className="mt-5">
+            <p className="text-[14px] font-bold text-brand-text">
+              特定休診日（年末年始・お盆など）
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                開始日
+                <input
+                  type="date"
+                  value={periodStart}
+                  onChange={(e) => updatePeriodStart(e.target.value)}
+                  aria-label="特定休診日の開始日"
+                  className={dateInputCls}
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                終了日
+                <input
+                  type="date"
+                  value={periodEnd}
+                  min={periodStart || undefined}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                  aria-label="特定休診日の終了日"
+                  className={dateInputCls}
+                />
+              </label>
+              <button
+                onClick={addClosedPeriod}
+                disabled={!canAddPeriod}
+                className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+              >
+                追加
+              </button>
+            </div>
+
+            {settings.closedPeriods.length > 0 ? (
+              <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
+                {settings.closedPeriods.map((p, i) => (
+                  <li
+                    key={`${p.start}-${p.end}-${i}`}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <span className="text-[14px] text-brand-text">
+                      {formatClosedPeriod(p)}
+                    </span>
+                    <button
+                      onClick={() => removeClosedPeriod(i)}
+                      className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1 text-[13px] font-bold text-brand-text transition active:bg-gray-100"
+                    >
+                      削除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[13px] text-brand-sub">
+                登録された特定休診日はありません。
+              </p>
+            )}
           </div>
         </section>
 

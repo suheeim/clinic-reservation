@@ -49,6 +49,12 @@ export interface BusinessHours {
   end: string
 }
 
+/** 特定休診日（開始日〜終了日の期間。1日だけのときは start と end が同じ） */
+export interface ClosedPeriod {
+  start: string // "2026-12-29"
+  end: string // "2027-01-03"
+}
+
 /** クリニックの運用設定（admin/settings） */
 export interface ClinicSettings {
   bandMinutes: number // 枠の基準時間（容量計算の基準・分）
@@ -59,6 +65,8 @@ export interface ClinicSettings {
     weekday: { am: BusinessHours; pm: BusinessHours } // 平日（月〜金）
     saturday: { am: BusinessHours; pm: BusinessHours } // 土曜
   }
+  holidayAutoClose: boolean // 日本の祝日を自動で休診にするか（初期値 true）
+  closedPeriods: ClosedPeriod[] // 特定休診日（年末年始・お盆など）
 }
 
 // 管理者設定（admin/）。パスワードと秘密の答えは bcrypt ハッシュで保存
