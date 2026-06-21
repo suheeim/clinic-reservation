@@ -55,6 +55,13 @@ export interface ClosedPeriod {
   end: string // "2027-01-03"
 }
 
+/** 短縮営業（その日だけ営業時間が違う）。am/pm が null の時間帯は休み（ー〜ー） */
+export interface ShortenedDay {
+  date: string // "2026-07-20"
+  am: BusinessHours | null
+  pm: BusinessHours | null
+}
+
 /** クリニックの運用設定（admin/settings） */
 export interface ClinicSettings {
   bandMinutes: number // 枠の基準時間（容量計算の基準・分）
@@ -67,6 +74,8 @@ export interface ClinicSettings {
   }
   holidayAutoClose: boolean // 日本の祝日を自動で休診にするか（初期値 true）
   closedPeriods: ClosedPeriod[] // 特定休診日（年末年始・お盆など）
+  temporaryClosedDays: string[] // 臨時休診（1日だけの急な休み）
+  shortenedDays: ShortenedDay[] // 短縮営業（その日だけ時間が違う）
 }
 
 // 管理者設定（admin/）。パスワードと秘密の答えは bcrypt ハッシュで保存

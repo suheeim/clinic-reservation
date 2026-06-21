@@ -436,6 +436,8 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   },
   holidayAutoClose: true,
   closedPeriods: [],
+  temporaryClosedDays: [],
+  shortenedDays: [],
 }
 
 /** 運用設定（admin/settings）を取得する。未設定（初回）なら null。 */

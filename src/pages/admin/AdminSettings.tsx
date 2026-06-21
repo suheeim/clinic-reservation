@@ -8,6 +8,7 @@ import type {
   BusinessHours,
   ClinicSettings,
   ClosedPeriod,
+  ShortenedDay,
   WeekdayKey,
   WeekdaySetting,
 } from '../../types'
@@ -41,6 +42,9 @@ const TIME_OPTIONS: string[] = (() => {
   }
   return out
 })()
+
+/** 時刻セレクトで「休み」を表す選択肢。短縮営業で午前/午後を ー〜ー にできる。 */
+const DASH = 'ー'
 
 /**
  * 基準時間と単位から施術時間の選択肢を生成する。
@@ -76,6 +80,11 @@ function normalize(s: ClinicSettings): ClinicSettings {
     // Firebase が空配列を null で返すため、配列でなければ [] に補う。
     holidayAutoClose: s.holidayAutoClose ?? d.holidayAutoClose,
     closedPeriods: Array.isArray(s.closedPeriods) ? s.closedPeriods : [],
+    // 臨時変更も Firebase の空配列 null 化に備えて配列でなければ [] に補う。
+    temporaryClosedDays: Array.isArray(s.temporaryClosedDays)
+      ? s.temporaryClosedDays
+      : [],
+    shortenedDays: Array.isArray(s.shortenedDays) ? s.shortenedDays : [],
   }
 }
 
@@ -122,6 +131,11 @@ function normalizeHours(raw: unknown): ClinicSettings['hours'] {
   }
 }
 
+/** その日付に対応する普段の営業時間（土曜は saturday、それ以外は weekday）。 */
+function usualHours(date: string, hours: ClinicSettings['hours']): HoursPair {
+  return fromDateKey(date).getDay() === 6 ? hours.saturday : hours.weekday
+}
+
 const numInputCls =
   'w-20 rounded-lg border-2 border-gray-300 bg-white px-2 py-1.5 text-[15px] text-brand-text focus:border-brand-pink disabled:bg-gray-100 disabled:text-gray-400'
 
@@ -146,6 +160,9 @@ export default function AdminSettings() {
   // 特定休診日の入力中の開始日・終了日（追加するまでの一時値）。
   const [periodStart, setPeriodStart] = useState('')
   const [periodEnd, setPeriodEnd] = useState('')
+  // 臨時休診・短縮営業で追加する日付（追加するまでの一時値）。
+  const [tempClosedDate, setTempClosedDate] = useState('')
+  const [shortenedDate, setShortenedDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -285,6 +302,99 @@ export default function AdminSettings() {
   function updatePeriodStart(value: string) {
     setPeriodStart(value)
     if (periodEnd && periodEnd < value) setPeriodEnd(value)
+  }
+
+  // ── 臨時休診（1日だけの急な休み） ──
+  // 日付が入っていて、まだ登録されていない日付のときだけ追加できる。
+  const canAddTempClosed =
+    !!tempClosedDate && !settings.temporaryClosedDays.includes(tempClosedDate)
+
+  function addTemporaryClosedDay() {
+    if (!canAddTempClosed) return
+    mutate((s) => ({
+      ...s,
+      temporaryClosedDays: [...s.temporaryClosedDays, tempClosedDate].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    }))
+    setTempClosedDate('')
+  }
+
+  function removeTemporaryClosedDay(index: number) {
+    mutate((s) => ({
+      ...s,
+      temporaryClosedDays: s.temporaryClosedDays.filter((_, i) => i !== index),
+    }))
+  }
+
+  // ── 短縮営業（その日だけ営業時間が違う） ──
+  // 日付が入っていて、まだ登録されていない日付のときだけ追加できる。
+  const canAddShortened =
+    !!shortenedDate && !settings.shortenedDays.some((d) => d.date === shortenedDate)
+
+  // 追加時は普段の営業時間（土曜/平日）を初期値として入れる。
+  function addShortenedDay() {
+    if (!canAddShortened) return
+    mutate((s) => {
+      const usual = usualHours(shortenedDate, s.hours)
+      const day: ShortenedDay = {
+        date: shortenedDate,
+        am: { ...usual.am },
+        pm: { ...usual.pm },
+      }
+      return {
+        ...s,
+        shortenedDays: [...s.shortenedDays, day].sort((a, b) =>
+          a.date.localeCompare(b.date),
+        ),
+      }
+    })
+    setShortenedDate('')
+  }
+
+  function removeShortenedDay(index: number) {
+    mutate((s) => ({
+      ...s,
+      shortenedDays: s.shortenedDays.filter((_, i) => i !== index),
+    }))
+  }
+
+  // 短縮営業の時刻変更。ーを選ぶとその時間帯は休み（null）。
+  // ーから実時刻へ戻すときは普段の値で相手側を補い、終了は開始より後に寄せる。
+  function updateShortenedHours(
+    index: number,
+    period: 'am' | 'pm',
+    field: 'start' | 'end',
+    value: string,
+  ) {
+    mutate((s) => {
+      const day = s.shortenedDays[index]
+      if (!day) return s
+      const usual = usualHours(day.date, s.hours)
+      const cur = day[period] ?? { start: DASH, end: DASH }
+      let next: BusinessHours = { ...cur, [field]: value }
+      if (value === DASH) {
+        // 片方を「ー」にしたら、その時間帯は休み（両方ー）。
+        next = { start: DASH, end: DASH }
+      } else {
+        // 相手側がーなら普段の値で補う。
+        if (next.start === DASH) next.start = usual[period].start
+        if (next.end === DASH) next.end = usual[period].end
+        // 終了は開始より後に。
+        if (next.end <= next.start) {
+          const after = TIME_OPTIONS.find((t) => t > next.start)
+          if (after) next.end = after
+        }
+      }
+      const newPeriod =
+        next.start === DASH && next.end === DASH ? null : next
+      return {
+        ...s,
+        shortenedDays: s.shortenedDays.map((d, i) =>
+          i === index ? { ...d, [period]: newPeriod } : d,
+        ),
+      }
+    })
   }
 
   async function handleSave() {
@@ -613,6 +723,169 @@ export default function AdminSettings() {
             ) : (
               <p className="mt-3 text-[13px] text-brand-sub">
                 登録された特定休診日はありません。
+              </p>
+            )}
+          </div>
+
+          {/* 臨時休診（1日だけの急な休み） */}
+          <div className="mt-5">
+            <p className="text-[14px] font-bold text-brand-text">
+              臨時休診（1日だけの急な休み）
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                日付
+                <input
+                  type="date"
+                  value={tempClosedDate}
+                  onChange={(e) => setTempClosedDate(e.target.value)}
+                  aria-label="臨時休診の日付"
+                  className={dateInputCls}
+                />
+              </label>
+              <button
+                onClick={addTemporaryClosedDay}
+                disabled={!canAddTempClosed}
+                className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+              >
+                追加
+              </button>
+            </div>
+
+            {settings.temporaryClosedDays.length > 0 ? (
+              <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
+                {settings.temporaryClosedDays.map((d, i) => (
+                  <li
+                    key={`${d}-${i}`}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <span className="text-[14px] text-brand-text">
+                      {formatClosedDate(d)}
+                    </span>
+                    <button
+                      onClick={() => removeTemporaryClosedDay(i)}
+                      className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1 text-[13px] font-bold text-brand-text transition active:bg-gray-100"
+                    >
+                      削除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[13px] text-brand-sub">
+                登録された臨時休診はありません。
+              </p>
+            )}
+          </div>
+
+          {/* 短縮営業（その日だけ時間が違う） */}
+          <div className="mt-5">
+            <p className="text-[14px] font-bold text-brand-text">
+              短縮営業（その日だけ時間が違う）
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                日付
+                <input
+                  type="date"
+                  value={shortenedDate}
+                  onChange={(e) => setShortenedDate(e.target.value)}
+                  aria-label="短縮営業の日付"
+                  className={dateInputCls}
+                />
+              </label>
+              <button
+                onClick={addShortenedDay}
+                disabled={!canAddShortened}
+                className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+              >
+                追加
+              </button>
+            </div>
+
+            {settings.shortenedDays.length > 0 ? (
+              <ul className="mt-3 flex flex-col gap-3 border-t border-gray-100 pt-3">
+                {settings.shortenedDays.map((day, i) => (
+                  <li
+                    key={`${day.date}-${i}`}
+                    className="rounded-lg border border-gray-200 p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] font-bold text-brand-text">
+                        {formatClosedDate(day.date)}
+                      </span>
+                      <button
+                        onClick={() => removeShortenedDay(i)}
+                        className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1 text-[13px] font-bold text-brand-text transition active:bg-gray-100"
+                      >
+                        削除
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {(['am', 'pm'] as const).map((period) => {
+                        const cur = day[period] ?? { start: DASH, end: DASH }
+                        const label = period === 'am' ? '午前' : '午後'
+                        const endOptions =
+                          cur.start === DASH
+                            ? TIME_OPTIONS
+                            : TIME_OPTIONS.filter((t) => t > cur.start)
+                        return (
+                          <div
+                            key={period}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="w-12 text-[14px] font-bold text-brand-text">
+                              {label}
+                            </span>
+                            <select
+                              value={cur.start}
+                              onChange={(e) =>
+                                updateShortenedHours(
+                                  i,
+                                  period,
+                                  'start',
+                                  e.target.value,
+                                )
+                              }
+                              aria-label={`${formatClosedDate(day.date)}${label}の開始時刻`}
+                              className={selectCls}
+                            >
+                              {[DASH, ...TIME_OPTIONS].map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-brand-sub">〜</span>
+                            <select
+                              value={cur.end}
+                              onChange={(e) =>
+                                updateShortenedHours(
+                                  i,
+                                  period,
+                                  'end',
+                                  e.target.value,
+                                )
+                              }
+                              aria-label={`${formatClosedDate(day.date)}${label}の終了時刻`}
+                              className={selectCls}
+                            >
+                              {[DASH, ...endOptions].map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[13px] text-brand-sub">
+                登録された短縮営業はありません。
               </p>
             )}
           </div>
