@@ -136,6 +136,39 @@ function usualHours(date: string, hours: ClinicSettings['hours']): HoursPair {
   return fromDateKey(date).getDay() === 6 ? hours.saturday : hours.weekday
 }
 
+/** 短縮営業の時間帯を「09:00〜12:00」/休みなら「ー〜ー」に整える。 */
+function formatPeriod(h: BusinessHours | null): string {
+  return h ? `${h.start}〜${h.end}` : `${DASH}〜${DASH}`
+}
+
+/**
+ * 時刻セレクト変更後の時間帯を求める。
+ * ーを選ぶとその時間帯は休み（null）。ーから実時刻へ戻すときは
+ * 普段の値で相手側を補い、終了は開始より後に寄せる。
+ */
+function nextPeriod(
+  cur: BusinessHours,
+  field: 'start' | 'end',
+  value: string,
+  usual: BusinessHours,
+): BusinessHours | null {
+  let next: BusinessHours = { ...cur, [field]: value }
+  if (value === DASH) {
+    // 片方を「ー」にしたら、その時間帯は休み（両方ー）。
+    next = { start: DASH, end: DASH }
+  } else {
+    // 相手側がーなら普段の値で補う。
+    if (next.start === DASH) next.start = usual.start
+    if (next.end === DASH) next.end = usual.end
+    // 終了は開始より後に。
+    if (next.end <= next.start) {
+      const after = TIME_OPTIONS.find((t) => t > next.start)
+      if (after) next.end = after
+    }
+  }
+  return next.start === DASH && next.end === DASH ? null : next
+}
+
 const numInputCls =
   'w-20 rounded-lg border-2 border-gray-300 bg-white px-2 py-1.5 text-[15px] text-brand-text focus:border-brand-pink disabled:bg-gray-100 disabled:text-gray-400'
 
@@ -157,12 +190,17 @@ export default function AdminSettings() {
     DEFAULT_CLINIC_SETTINGS,
   )
   const [baseStaff, setBaseStaff] = useState(1)
-  // 特定休診日の入力中の開始日・終了日（追加するまでの一時値）。
+  // 特定休診日の入力中の名前・開始日・終了日（追加するまでの一時値）。
+  const [periodLabel, setPeriodLabel] = useState('')
   const [periodStart, setPeriodStart] = useState('')
   const [periodEnd, setPeriodEnd] = useState('')
-  // 臨時休診・短縮営業で追加する日付（追加するまでの一時値）。
+  // 臨時休診で追加する日付（追加するまでの一時値）。
   const [tempClosedDate, setTempClosedDate] = useState('')
+  // 短縮営業の入力中の日付・午前・午後（追加するまでの一時値）。
+  // am/pm が null の時間帯は休み（ー〜ー）。
   const [shortenedDate, setShortenedDate] = useState('')
+  const [shortenedAm, setShortenedAm] = useState<BusinessHours | null>(null)
+  const [shortenedPm, setShortenedPm] = useState<BusinessHours | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -280,13 +318,18 @@ export default function AdminSettings() {
 
   function addClosedPeriod() {
     if (!canAddPeriod) return
+    // 名前は任意。空のときは label を付けない（undefined を保存しない）。
+    const label = periodLabel.trim()
+    const period: ClosedPeriod = label
+      ? { start: periodStart, end: periodEnd, label }
+      : { start: periodStart, end: periodEnd }
     mutate((s) => ({
       ...s,
-      closedPeriods: [
-        ...s.closedPeriods,
-        { start: periodStart, end: periodEnd },
-      ].sort((a, b) => a.start.localeCompare(b.start)),
+      closedPeriods: [...s.closedPeriods, period].sort((a, b) =>
+        a.start.localeCompare(b.start),
+      ),
     }))
+    setPeriodLabel('')
     setPeriodStart('')
     setPeriodEnd('')
   }
@@ -332,24 +375,57 @@ export default function AdminSettings() {
   const canAddShortened =
     !!shortenedDate && !settings.shortenedDays.some((d) => d.date === shortenedDate)
 
-  // 追加時は普段の営業時間（土曜/平日）を初期値として入れる。
+  // 日付を選んだら、入力エリアの午前・午後に普段の営業時間を初期値で入れる。
+  function updateShortenedDate(value: string) {
+    setShortenedDate(value)
+    setSaved(false)
+    setError('')
+    if (value) {
+      const usual = usualHours(value, settings.hours)
+      setShortenedAm({ ...usual.am })
+      setShortenedPm({ ...usual.pm })
+    } else {
+      setShortenedAm(null)
+      setShortenedPm(null)
+    }
+  }
+
+  // 入力エリアの午前・午後の時刻を変更する。
+  function updateShortenedDraftHours(
+    period: 'am' | 'pm',
+    field: 'start' | 'end',
+    value: string,
+  ) {
+    const cur = (period === 'am' ? shortenedAm : shortenedPm) ?? {
+      start: DASH,
+      end: DASH,
+    }
+    const usual = shortenedDate
+      ? usualHours(shortenedDate, settings.hours)[period]
+      : settings.hours.weekday[period]
+    const next = nextPeriod(cur, field, value, usual)
+    if (period === 'am') setShortenedAm(next)
+    else setShortenedPm(next)
+    setSaved(false)
+    setError('')
+  }
+
   function addShortenedDay() {
     if (!canAddShortened) return
-    mutate((s) => {
-      const usual = usualHours(shortenedDate, s.hours)
-      const day: ShortenedDay = {
-        date: shortenedDate,
-        am: { ...usual.am },
-        pm: { ...usual.pm },
-      }
-      return {
-        ...s,
-        shortenedDays: [...s.shortenedDays, day].sort((a, b) =>
-          a.date.localeCompare(b.date),
-        ),
-      }
-    })
+    const day: ShortenedDay = {
+      date: shortenedDate,
+      am: shortenedAm,
+      pm: shortenedPm,
+    }
+    mutate((s) => ({
+      ...s,
+      shortenedDays: [...s.shortenedDays, day].sort((a, b) =>
+        a.date.localeCompare(b.date),
+      ),
+    }))
     setShortenedDate('')
+    setShortenedAm(null)
+    setShortenedPm(null)
   }
 
   function removeShortenedDay(index: number) {
@@ -357,44 +433,6 @@ export default function AdminSettings() {
       ...s,
       shortenedDays: s.shortenedDays.filter((_, i) => i !== index),
     }))
-  }
-
-  // 短縮営業の時刻変更。ーを選ぶとその時間帯は休み（null）。
-  // ーから実時刻へ戻すときは普段の値で相手側を補い、終了は開始より後に寄せる。
-  function updateShortenedHours(
-    index: number,
-    period: 'am' | 'pm',
-    field: 'start' | 'end',
-    value: string,
-  ) {
-    mutate((s) => {
-      const day = s.shortenedDays[index]
-      if (!day) return s
-      const usual = usualHours(day.date, s.hours)
-      const cur = day[period] ?? { start: DASH, end: DASH }
-      let next: BusinessHours = { ...cur, [field]: value }
-      if (value === DASH) {
-        // 片方を「ー」にしたら、その時間帯は休み（両方ー）。
-        next = { start: DASH, end: DASH }
-      } else {
-        // 相手側がーなら普段の値で補う。
-        if (next.start === DASH) next.start = usual[period].start
-        if (next.end === DASH) next.end = usual[period].end
-        // 終了は開始より後に。
-        if (next.end <= next.start) {
-          const after = TIME_OPTIONS.find((t) => t > next.start)
-          if (after) next.end = after
-        }
-      }
-      const newPeriod =
-        next.start === DASH && next.end === DASH ? null : next
-      return {
-        ...s,
-        shortenedDays: s.shortenedDays.map((d, i) =>
-          i === index ? { ...d, [period]: newPeriod } : d,
-        ),
-      }
-    })
   }
 
   async function handleSave() {
@@ -595,7 +633,7 @@ export default function AdminSettings() {
                 <p className="text-[14px] font-bold text-brand-text">
                   {patternLabel}
                 </p>
-                <div className="mt-2 flex flex-col gap-3">
+                <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
                   {(['am', 'pm'] as const).map((period) => {
                     const h = settings.hours[pattern][period]
                     const label = period === 'am' ? '午前' : '午後'
@@ -672,6 +710,21 @@ export default function AdminSettings() {
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                名前
+                <input
+                  type="text"
+                  value={periodLabel}
+                  onChange={(e) => {
+                    setPeriodLabel(e.target.value)
+                    setSaved(false)
+                    setError('')
+                  }}
+                  placeholder="年末年始など（任意）"
+                  aria-label="特定休診日の名前"
+                  className={`${dateInputCls} w-40`}
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
                 開始日
                 <input
                   type="date"
@@ -709,6 +762,9 @@ export default function AdminSettings() {
                     className="flex items-center justify-between py-2"
                   >
                     <span className="text-[14px] text-brand-text">
+                      {p.label ? (
+                        <span className="font-bold">{p.label}　</span>
+                      ) : null}
                       {formatClosedPeriod(p)}
                     </span>
                     <button
@@ -783,103 +839,108 @@ export default function AdminSettings() {
             <p className="text-[14px] font-bold text-brand-text">
               短縮営業（その日だけ時間が違う）
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
-                日付
-                <input
-                  type="date"
-                  value={shortenedDate}
-                  onChange={(e) => setShortenedDate(e.target.value)}
-                  aria-label="短縮営業の日付"
-                  className={dateInputCls}
-                />
-              </label>
-              <button
-                onClick={addShortenedDay}
-                disabled={!canAddShortened}
-                className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
-              >
-                追加
-              </button>
+
+            {/* 入力エリア：日付 → 午前・午後 → 追加 */}
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                  日付
+                  <input
+                    type="date"
+                    value={shortenedDate}
+                    onChange={(e) => updateShortenedDate(e.target.value)}
+                    aria-label="短縮営業の日付"
+                    className={dateInputCls}
+                  />
+                </label>
+                <button
+                  onClick={addShortenedDay}
+                  disabled={!canAddShortened}
+                  className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+                >
+                  追加
+                </button>
+              </div>
+
+              {shortenedDate ? (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  {(['am', 'pm'] as const).map((period) => {
+                    const cur =
+                      (period === 'am' ? shortenedAm : shortenedPm) ?? {
+                        start: DASH,
+                        end: DASH,
+                      }
+                    const label = period === 'am' ? '午前' : '午後'
+                    const endOptions =
+                      cur.start === DASH
+                        ? TIME_OPTIONS
+                        : TIME_OPTIONS.filter((t) => t > cur.start)
+                    return (
+                      <div key={period} className="flex items-center gap-2">
+                        <span className="w-12 text-[14px] font-bold text-brand-text">
+                          {label}
+                        </span>
+                        <select
+                          value={cur.start}
+                          onChange={(e) =>
+                            updateShortenedDraftHours(
+                              period,
+                              'start',
+                              e.target.value,
+                            )
+                          }
+                          aria-label={`短縮営業の${label}の開始時刻`}
+                          className={selectCls}
+                        >
+                          {[DASH, ...TIME_OPTIONS].map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-brand-sub">〜</span>
+                        <select
+                          value={cur.end}
+                          onChange={(e) =>
+                            updateShortenedDraftHours(
+                              period,
+                              'end',
+                              e.target.value,
+                            )
+                          }
+                          aria-label={`短縮営業の${label}の終了時刻`}
+                          className={selectCls}
+                        >
+                          {[DASH, ...endOptions].map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
 
             {settings.shortenedDays.length > 0 ? (
-              <ul className="mt-3 flex flex-col gap-3 border-t border-gray-100 pt-3">
+              <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
                 {settings.shortenedDays.map((day, i) => (
                   <li
                     key={`${day.date}-${i}`}
-                    className="rounded-lg border border-gray-200 p-3"
+                    className="flex items-center justify-between py-2"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[14px] font-bold text-brand-text">
-                        {formatClosedDate(day.date)}
-                      </span>
-                      <button
-                        onClick={() => removeShortenedDay(i)}
-                        className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1 text-[13px] font-bold text-brand-text transition active:bg-gray-100"
-                      >
-                        削除
-                      </button>
-                    </div>
-                    <div className="mt-2 flex flex-col gap-2">
-                      {(['am', 'pm'] as const).map((period) => {
-                        const cur = day[period] ?? { start: DASH, end: DASH }
-                        const label = period === 'am' ? '午前' : '午後'
-                        const endOptions =
-                          cur.start === DASH
-                            ? TIME_OPTIONS
-                            : TIME_OPTIONS.filter((t) => t > cur.start)
-                        return (
-                          <div
-                            key={period}
-                            className="flex items-center gap-2"
-                          >
-                            <span className="w-12 text-[14px] font-bold text-brand-text">
-                              {label}
-                            </span>
-                            <select
-                              value={cur.start}
-                              onChange={(e) =>
-                                updateShortenedHours(
-                                  i,
-                                  period,
-                                  'start',
-                                  e.target.value,
-                                )
-                              }
-                              aria-label={`${formatClosedDate(day.date)}${label}の開始時刻`}
-                              className={selectCls}
-                            >
-                              {[DASH, ...TIME_OPTIONS].map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="text-brand-sub">〜</span>
-                            <select
-                              value={cur.end}
-                              onChange={(e) =>
-                                updateShortenedHours(
-                                  i,
-                                  period,
-                                  'end',
-                                  e.target.value,
-                                )
-                              }
-                              aria-label={`${formatClosedDate(day.date)}${label}の終了時刻`}
-                              className={selectCls}
-                            >
-                              {[DASH, ...endOptions].map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    <span className="text-[14px] text-brand-text">
+                      {formatClosedDate(day.date)}　午前 {formatPeriod(day.am)} /
+                      午後 {formatPeriod(day.pm)}
+                    </span>
+                    <button
+                      onClick={() => removeShortenedDay(i)}
+                      className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1 text-[13px] font-bold text-brand-text transition active:bg-gray-100"
+                    >
+                      削除
+                    </button>
                   </li>
                 ))}
               </ul>

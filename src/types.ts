@@ -53,6 +53,7 @@ export interface BusinessHours {
 export interface ClosedPeriod {
   start: string // "2026-12-29"
   end: string // "2027-01-03"
+  label?: string // 任意。「年末年始」など。空/未設定可
 }
 
 /** 短縮営業（その日だけ営業時間が違う）。am/pm が null の時間帯は休み（ー〜ー） */
