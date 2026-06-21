@@ -463,7 +463,7 @@ export default function AdminSettings() {
 
   return (
     <div className="flex-1 px-4 py-5 md:px-8">
-      <div className="mx-auto w-full max-w-[720px] space-y-5">
+      <div className="mx-auto w-full max-w-[1100px] space-y-5">
         {/* (A) 枠の基準時間・枠の単位 */}
         <section className={sectionCls}>
           <h2 className={sectionTitleCls}>枠の基準時間・枠の単位</h2>
