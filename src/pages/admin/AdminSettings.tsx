@@ -65,6 +65,16 @@ function toInt(value: string, min = 0): number {
   return Math.max(min, n)
 }
 
+/**
+ * 入力文字列から半角数字（0-9）以外をすべて除去する。
+ * 全角数字「６０」やマイナス「−」「-」、その他の文字は弾く。
+ * 全角→半角の自動変換はしない（「−６０」が「-60」に化けてマイナスが
+ * すり抜けるのを防ぐため、半角数字以外はそもそも受け付けない方式）。
+ */
+function digitsOnly(value: string): string {
+  return value.replace(/[^0-9]/g, '')
+}
+
 /** 読み込んだ設定をデフォルトとマージして欠損項目を補う（段階追加への耐性）。 */
 function normalize(s: ClinicSettings): ClinicSettings {
   const d = DEFAULT_CLINIC_SETTINGS
@@ -181,6 +191,10 @@ const dateInputCls =
 const sectionCls = 'rounded-xl border border-gray-200 bg-white p-5 shadow-sm'
 const sectionTitleCls = 'text-[16px] font-bold text-brand-text'
 
+// 入力欄直下に出すリアルタイムのエラーメッセージ。管理者画面の
+// エラー表現に合わせ brand-orange を用いる（errorBoxCls と同系色）。
+const fieldErrorCls = 'mt-1 text-[13px] font-bold text-brand-orange'
+
 /**
  * 管理者の基本設定（容量ベース予約モデルの段階1）。
  * 枠の基準時間・単位／施術時間の選択肢／曜日ごとの定休日と人数／営業時間。
@@ -188,6 +202,14 @@ const sectionTitleCls = 'text-[16px] font-bold text-brand-text'
 export default function AdminSettings() {
   const [settings, setSettings] = useState<ClinicSettings>(
     DEFAULT_CLINIC_SETTINGS,
+  )
+  // 枠の基準時間・単位は空欄（0）も表現したいので、入力欄の表示は
+  // 文字列の下書きで保持し、数値は settings 側へ別途反映する。
+  const [bandInput, setBandInput] = useState(
+    String(DEFAULT_CLINIC_SETTINGS.bandMinutes),
+  )
+  const [unitInput, setUnitInput] = useState(
+    String(DEFAULT_CLINIC_SETTINGS.slotUnit),
   )
   const [baseStaff, setBaseStaff] = useState(1)
   // 特定休診日の入力中の名前・開始日・終了日（追加するまでの一時値）。
@@ -211,7 +233,10 @@ export default function AdminSettings() {
     getClinicSettings()
       .then((s) => {
         if (!active) return
-        setSettings(s ? normalize(s) : DEFAULT_CLINIC_SETTINGS)
+        const next = s ? normalize(s) : DEFAULT_CLINIC_SETTINGS
+        setSettings(next)
+        setBandInput(String(next.bandMinutes))
+        setUnitInput(String(next.slotUnit))
         setLoading(false)
       })
       .catch((e) => {
@@ -231,6 +256,22 @@ export default function AdminSettings() {
     [settings.bandMinutes, settings.slotUnit],
   )
 
+  // ── 数値バリデーション（リアルタイム） ──
+  // 基準時間・単位は 1 以上が必須。基準時間 < 単位は矛盾。
+  // 先生人数は 0 を許容するためここでは検査しない。
+  const bandError =
+    settings.bandMinutes < 1 ? '1以上を入力してください' : ''
+  const unitError =
+    settings.slotUnit < 1 ? '1以上を入力してください' : ''
+  // 関係エラーは両方が有効値（1以上）のときだけ判定し、メッセージの二重表示を避ける。
+  const relationError =
+    settings.bandMinutes >= 1 &&
+    settings.slotUnit >= 1 &&
+    settings.bandMinutes < settings.slotUnit
+      ? '単位は基準時間以下にしてください'
+      : ''
+  const hasError = !!(bandError || unitError || relationError)
+
   // 設定を更新するたび「保存しました」表示を消し、エラーもクリアする。
   function mutate(fn: (s: ClinicSettings) => ClinicSettings) {
     setSettings(fn)
@@ -238,8 +279,12 @@ export default function AdminSettings() {
     setError('')
   }
 
-  // 基準時間・単位の変更時は、範囲外になったチェックを落として再生成する。
-  function updateBand(v: number) {
+  // 基準時間・単位は半角数字のみ受け付け、空欄は 0 として扱う。
+  // 変更時は範囲外になったチェックを落として施術時間の選択肢を再生成する。
+  function updateBand(raw: string) {
+    const digits = digitsOnly(raw)
+    setBandInput(digits)
+    const v = digits === '' ? 0 : parseInt(digits, 10)
     mutate((s) => {
       const next = generateTreatmentOptions(v, s.slotUnit)
       return {
@@ -250,7 +295,10 @@ export default function AdminSettings() {
     })
   }
 
-  function updateUnit(v: number) {
+  function updateUnit(raw: string) {
+    const digits = digitsOnly(raw)
+    setUnitInput(digits)
+    const v = digits === '' ? 0 : parseInt(digits, 10)
     mutate((s) => {
       const next = generateTreatmentOptions(s.bandMinutes, v)
       return {
@@ -436,7 +484,7 @@ export default function AdminSettings() {
   }
 
   async function handleSave() {
-    if (saving) return
+    if (saving || hasError) return
     setSaving(true)
     setError('')
     setSaved(false)
@@ -468,29 +516,40 @@ export default function AdminSettings() {
         <section className={sectionCls}>
           <h2 className={sectionTitleCls}>枠の基準時間・枠の単位</h2>
           <div className="mt-4 flex flex-wrap gap-6">
-            <label className="flex items-center gap-2 text-[14px] font-bold text-brand-text">
-              枠の基準時間
-              <input
-                type="number"
-                min={0}
-                value={settings.bandMinutes}
-                onChange={(e) => updateBand(toInt(e.target.value))}
-                className={numInputCls}
-              />
-              分
-            </label>
-            <label className="flex items-center gap-2 text-[14px] font-bold text-brand-text">
-              枠の単位
-              <input
-                type="number"
-                min={0}
-                value={settings.slotUnit}
-                onChange={(e) => updateUnit(toInt(e.target.value))}
-                className={numInputCls}
-              />
-              分
-            </label>
+            <div>
+              <label className="flex items-center gap-2 text-[14px] font-bold text-brand-text">
+                枠の基準時間
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={bandInput}
+                  onChange={(e) => updateBand(e.target.value)}
+                  aria-invalid={!!bandError}
+                  className={numInputCls}
+                />
+                分
+              </label>
+              {bandError ? <p className={fieldErrorCls}>{bandError}</p> : null}
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-[14px] font-bold text-brand-text">
+                枠の単位
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={unitInput}
+                  onChange={(e) => updateUnit(e.target.value)}
+                  aria-invalid={!!unitError}
+                  className={numInputCls}
+                />
+                分
+              </label>
+              {unitError ? <p className={fieldErrorCls}>{unitError}</p> : null}
+            </div>
           </div>
+          {relationError ? (
+            <p className={fieldErrorCls}>{relationError}</p>
+          ) : null}
         </section>
 
         {/* (B) 施術時間の選択肢（自動生成＋チェック） */}
@@ -540,10 +599,10 @@ export default function AdminSettings() {
             <label className="flex items-center gap-2 text-[14px] font-bold text-brand-text">
               基本人数
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
                 value={baseStaff}
-                onChange={(e) => setBaseStaff(toInt(e.target.value))}
+                onChange={(e) => setBaseStaff(toInt(digitsOnly(e.target.value)))}
                 className={numInputCls}
               />
               人
@@ -593,12 +652,14 @@ export default function AdminSettings() {
                     </td>
                     <td className="py-2 text-center">
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         value={w.am}
                         disabled={w.closed}
                         onChange={(e) =>
-                          updateWeekday(key, { am: toInt(e.target.value) })
+                          updateWeekday(key, {
+                            am: toInt(digitsOnly(e.target.value)),
+                          })
                         }
                         aria-label={`${label}の午前の人数`}
                         className={numInputCls}
@@ -606,12 +667,14 @@ export default function AdminSettings() {
                     </td>
                     <td className="py-2 text-center">
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         value={w.pm}
                         disabled={w.closed}
                         onChange={(e) =>
-                          updateWeekday(key, { pm: toInt(e.target.value) })
+                          updateWeekday(key, {
+                            pm: toInt(digitsOnly(e.target.value)),
+                          })
                         }
                         aria-label={`${label}の午後の人数`}
                         className={numInputCls}
@@ -962,7 +1025,7 @@ export default function AdminSettings() {
 
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || hasError}
           className={primaryBtnCls}
         >
           {saving ? '保存中…' : '保存する'}
