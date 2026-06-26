@@ -438,6 +438,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   closedPeriods: [],
   temporaryClosedDays: [],
   shortenedDays: [],
+  doctorOverrides: [],
 }
 
 /** 運用設定（admin/settings）を取得する。未設定（初回）なら null。 */

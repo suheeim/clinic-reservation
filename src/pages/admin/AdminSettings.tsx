@@ -8,6 +8,7 @@ import type {
   BusinessHours,
   ClinicSettings,
   ClosedPeriod,
+  DoctorOverride,
   ShortenedDay,
   WeekdayKey,
   WeekdaySetting,
@@ -95,6 +96,7 @@ function normalize(s: ClinicSettings): ClinicSettings {
       ? s.temporaryClosedDays
       : [],
     shortenedDays: Array.isArray(s.shortenedDays) ? s.shortenedDays : [],
+    doctorOverrides: Array.isArray(s.doctorOverrides) ? s.doctorOverrides : [],
   }
 }
 
@@ -144,6 +146,25 @@ function normalizeHours(raw: unknown): ClinicSettings['hours'] {
 /** その日付に対応する普段の営業時間（土曜は saturday、それ以外は weekday）。 */
 function usualHours(date: string, hours: ClinicSettings['hours']): HoursPair {
   return fromDateKey(date).getDay() === 6 ? hours.saturday : hours.weekday
+}
+
+/** getDay()（0=日）から曜日キーへの対応。 */
+const DAY_KEYS: WeekdayKey[] = [
+  'sun',
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+]
+
+/** その日付の曜日に対応する普段の先生人数設定（段階1の weekdays）。 */
+function usualStaff(
+  date: string,
+  weekdays: ClinicSettings['weekdays'],
+): WeekdaySetting {
+  return weekdays[DAY_KEYS[fromDateKey(date).getDay()]]
 }
 
 /** 短縮営業の時間帯を「09:00〜12:00」/休みなら「ー〜ー」に整える。 */
@@ -223,6 +244,11 @@ export default function AdminSettings() {
   const [shortenedDate, setShortenedDate] = useState('')
   const [shortenedAm, setShortenedAm] = useState<BusinessHours | null>(null)
   const [shortenedPm, setShortenedPm] = useState<BusinessHours | null>(null)
+  // 先生人数の臨時変更の入力中の日付・午前・午後（追加するまでの一時値）。
+  // 人数欄は空欄（0）も表現したいので文字列の下書きで保持する。
+  const [overrideDate, setOverrideDate] = useState('')
+  const [overrideAm, setOverrideAm] = useState('')
+  const [overridePm, setOverridePm] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -480,6 +506,61 @@ export default function AdminSettings() {
     mutate((s) => ({
       ...s,
       shortenedDays: s.shortenedDays.filter((_, i) => i !== index),
+    }))
+  }
+
+  // ── 先生人数の臨時変更（1日だけ人数が違う） ──
+  // 日付が入っていて、まだ登録されていない日付のときだけ追加できる。
+  const canAddOverride =
+    !!overrideDate && !settings.doctorOverrides.some((d) => d.date === overrideDate)
+
+  // 日付を選んだら、その曜日の普段の人数（weekdays）を午前・午後の初期値に入れる。
+  function updateOverrideDate(value: string) {
+    setOverrideDate(value)
+    setSaved(false)
+    setError('')
+    if (value) {
+      const usual = usualStaff(value, settings.weekdays)
+      setOverrideAm(String(usual.am))
+      setOverridePm(String(usual.pm))
+    } else {
+      setOverrideAm('')
+      setOverridePm('')
+    }
+  }
+
+  // 人数欄は半角数字のみ受け付ける（全角・マイナス不可、0可）。
+  function updateOverrideStaff(period: 'am' | 'pm', raw: string) {
+    const digits = digitsOnly(raw)
+    if (period === 'am') setOverrideAm(digits)
+    else setOverridePm(digits)
+    setSaved(false)
+    setError('')
+  }
+
+  function addDoctorOverride() {
+    if (!canAddOverride) return
+    // 空欄は 0（その時間帯は先生なし）として扱う。
+    const override: DoctorOverride = {
+      date: overrideDate,
+      am: overrideAm === '' ? 0 : toInt(overrideAm),
+      pm: overridePm === '' ? 0 : toInt(overridePm),
+    }
+    mutate((s) => ({
+      ...s,
+      doctorOverrides: [...s.doctorOverrides, override].sort((a, b) =>
+        a.date.localeCompare(b.date),
+      ),
+    }))
+    setOverrideDate('')
+    setOverrideAm('')
+    setOverridePm('')
+  }
+
+  function removeDoctorOverride(index: number) {
+    mutate((s) => ({
+      ...s,
+      doctorOverrides: s.doctorOverrides.filter((_, i) => i !== index),
     }))
   }
 
@@ -1010,6 +1091,90 @@ export default function AdminSettings() {
             ) : (
               <p className="mt-3 text-[13px] text-brand-sub">
                 登録された短縮営業はありません。
+              </p>
+            )}
+          </div>
+
+          {/* 先生人数の臨時変更（1日だけ人数が違う） */}
+          <div className="mt-5">
+            <p className="text-[14px] font-bold text-brand-text">
+              先生人数の臨時変更（1日だけ人数が違う）
+            </p>
+
+            {/* 入力エリア：日付 → 午前・午後 → 追加 */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                日付
+                <input
+                  type="date"
+                  value={overrideDate}
+                  onChange={(e) => updateOverrideDate(e.target.value)}
+                  aria-label="先生人数の臨時変更の日付"
+                  className={dateInputCls}
+                />
+              </label>
+              {overrideDate ? (
+                <>
+                  <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                    午前
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={overrideAm}
+                      onChange={(e) => updateOverrideStaff('am', e.target.value)}
+                      aria-label="先生人数の臨時変更の午前の人数"
+                      className={numInputCls}
+                    />
+                    人
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[14px] text-brand-text">
+                    午後
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={overridePm}
+                      onChange={(e) => updateOverrideStaff('pm', e.target.value)}
+                      aria-label="先生人数の臨時変更の午後の人数"
+                      className={numInputCls}
+                    />
+                    人
+                  </label>
+                </>
+              ) : null}
+              <button
+                onClick={addDoctorOverride}
+                disabled={!canAddOverride}
+                className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-[14px] font-bold text-brand-text transition active:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+              >
+                追加
+              </button>
+            </div>
+            <p className="mt-1 text-[13px] text-brand-sub">
+              日付を選ぶとその曜日の普段の人数が入ります。変えたいところだけ直してください。
+            </p>
+
+            {settings.doctorOverrides.length > 0 ? (
+              <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
+                {settings.doctorOverrides.map((d, i) => (
+                  <li
+                    key={`${d.date}-${i}`}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <span className="text-[14px] text-brand-text">
+                      {formatClosedDate(d.date)}　午前 {d.am}人 / 午後 {d.pm}人
+                    </span>
+                    <button
+                      onClick={() => removeDoctorOverride(i)}
+                      className="rounded-lg border-2 border-gray-300 bg-white px-3 py-1 text-[13px] font-bold text-brand-text transition active:bg-gray-100"
+                    >
+                      削除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[13px] text-brand-sub">
+                登録された先生人数の臨時変更はありません。
               </p>
             )}
           </div>

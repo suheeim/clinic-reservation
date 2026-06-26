@@ -63,6 +63,13 @@ export interface ShortenedDay {
   pm: BusinessHours | null
 }
 
+/** 先生人数の臨時変更（1日だけ人数が違う）。am/pm は午前・午後の先生人数（0可） */
+export interface DoctorOverride {
+  date: string // "2026-07-20"
+  am: number // 午前の先生人数（0可）
+  pm: number // 午後の先生人数（0可）
+}
+
 /** クリニックの運用設定（admin/settings） */
 export interface ClinicSettings {
   bandMinutes: number // 枠の基準時間（容量計算の基準・分）
@@ -77,6 +84,7 @@ export interface ClinicSettings {
   closedPeriods: ClosedPeriod[] // 特定休診日（年末年始・お盆など）
   temporaryClosedDays: string[] // 臨時休診（1日だけの急な休み）
   shortenedDays: ShortenedDay[] // 短縮営業（その日だけ時間が違う）
+  doctorOverrides: DoctorOverride[] // 先生人数の臨時変更（1日だけ人数が違う）
 }
 
 // 管理者設定（admin/）。パスワードと秘密の答えは bcrypt ハッシュで保存
